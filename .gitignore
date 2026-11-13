@@ -20,3 +20,7 @@ Session File Backups/
 *.tmp
 Freeze Files/
 Bounced Files/tmp/
+
+# Python
+__pycache__/
+*.pyc

@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Stellar Lyrics</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56,6 +57,12 @@ input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:4px}
 .card h2{font-family:var(--display);font-weight:500;font-size:18px;letter-spacing:.04em;margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .hint{color:var(--muted);font-size:13px;line-height:1.6;margin:0;max-width:64ch}
 .hint code{color:var(--fg);background:var(--raise);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12px}
+.find{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.findrow{display:flex;flex-wrap:wrap;gap:8px}
+.findrow input{flex:1 1 160px;min-width:0;background:var(--ink);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:13px var(--ui)}
+.badge{flex:none;font:500 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted)}
+.badge.ok{color:var(--accent);border-color:var(--accent)}
+.drop{position:absolute;inset:12px;border:2px dashed var(--accent);border-radius:16px;display:grid;place-items:center;font:500 16px var(--ui);color:var(--fg);background:rgba(0,0,0,.6);pointer-events:none}
 textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:12px;font:13px/1.6 var(--mono);resize:vertical}
 .tracks{display:flex;flex-direction:column;gap:6px}
 .tr{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--ink);cursor:pointer;text-align:left;color:var(--fg);font:inherit;width:100%}
@@ -81,7 +88,7 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
 <div class="app">
   <header class="bar gutter">
     <div class="brand">Stellar<span>.</span></div>
-    <div class="now"><b id="nowTitle">Loading</b><span class="pill" id="bpm">--- BPM</span><span class="pill moon" id="moonPill">Moon</span></div>
+    <div class="now"><b id="nowTitle">Loading</b><span class="pill" id="bpm">--- BPM</span><span class="pill moon" id="moonPill">Moon</span><span class="pill" id="syncPill" hidden></span></div>
     <button class="ico" id="plBtn" type="button" aria-label="Playlist" title="Playlist (L)"><svg viewBox="0 0 24 24"><path d="M4 6h12M4 12h12M4 18h8"/><path d="M19 12v6"/><circle cx="17" cy="18" r="2"/></svg></button>
     <button class="ico" id="lyricsBtn" type="button" aria-label="Lyrics" title="Lyrics"><svg viewBox="0 0 24 24"><path d="M5 5h14M5 10h14M5 15h9M5 20h6"/></svg></button>
     <button class="ico" id="fsBtn" type="button" aria-label="Full screen" title="Full screen (F)"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
@@ -98,6 +105,7 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
         <button class="btn" id="syncDone" type="button">Finish</button>
       </div>
     </div>
+    <div class="drop" id="dropHint" hidden>Drop songs and .lrc files to add them</div>
     <div class="fsdock"><button class="btn" id="fsPlay" type="button">Play / pause</button><button class="btn" id="fsExit" type="button">Exit full screen</button></div>
   </main>
 
@@ -124,24 +132,31 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
   <div class="card gutter" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <h2 id="sheetTitle">Lyrics <button class="btn" id="closeSheet" type="button">Close</button></h2>
     <div id="panLyrics">
-      <p class="hint">Lyrics for the current song. Lines with timestamps like <code>[01:23.50]</code> sync exactly, and <code>&lt;01:23.90&gt;</code> tags inside a line time single words, which places every word-star on its exact beat. Plain lines are spread evenly across the song, or use <b>Sync by tapping</b> to time them yourself while the song plays.</p>
+      <p class="hint">Lyrics for the current song. Songs you add get their lyrics from <b>LRCLIB</b>, a free open lyrics database, and are then auto-synced to your recording. Lines with timestamps like <code>[01:23.50]</code> sync exactly, and <code>&lt;01:23.90&gt;</code> tags inside a line time single words, which places every word-star on its exact beat. Plain lines are spread evenly across the song, or use <b>Sync by tapping</b> to time them yourself while the song plays.</p>
+      <div class="find">
+        <div class="findrow"><input id="qTitle" type="text" placeholder="Song title" aria-label="Song title"><input id="qArtist" type="text" placeholder="Artist (optional)" aria-label="Artist"><button class="btn primary" id="qGo" type="button">Find lyrics online</button></div>
+        <div class="tracks" id="qResults"></div>
+      </div>
       <textarea id="lyricsText" spellcheck="false" aria-label="Lyrics text"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="btn primary" id="applyLyrics" type="button">Apply lyrics</button>
         <button class="btn" id="tapSync" type="button">Sync lines by tapping</button>
         <button class="btn" id="tapSyncWords" type="button">Sync every word</button>
         <button class="btn" id="lrcBtn" type="button">Open .lrc file</button>
+        <button class="btn" id="autoSyncBtn" type="button">Auto-sync to the audio</button>
         <button class="btn" id="copyLrc" type="button">Copy timed lyrics</button>
       </div>
       <p class="hint" style="margin-top:10px">While a song plays, <code>[</code> and <code>]</code> shift all lyrics 0.1 s earlier or later, <code>{</code> and <code>}</code> by a full second. The shift is saved as an <code>[offset:]</code> line.</p>
       <input type="file" id="lrcFile" accept=".lrc,.txt,text/plain" hidden>
     </div>
     <div id="panPlaylist" hidden>
-      <p class="hint">Songs play in order and move to the next one automatically. Each song keeps its own lyrics.</p>
+      <p class="hint">Songs play in order and move to the next one automatically. Open a whole folder at once: a <code>.lrc</code> file with the same name as a song is used as its lyrics, and songs without one look theirs up on LRCLIB. You can also drop files onto the sky.</p>
       <div class="tracks" id="trackList"></div>
       <div class="row" style="margin-top:10px">
         <button class="btn primary" id="addSongs" type="button">Add songs</button>
+        <button class="btn" id="addFolder" type="button">Open a music folder</button>
         <button class="btn" id="demoBtn" type="button">Add demo songs</button>
+        <input type="file" id="folderFile" webkitdirectory multiple hidden>
       </div>
     </div>
     <div id="panSettings" hidden>
@@ -149,6 +164,8 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
         <span class="label">Visualizer</span><div class="row" id="vizChips"></div>
         <span class="label">Sky</span><div class="row" id="fxChips"></div>
         <span class="label">Quality</span><div class="row" id="qualChips"></div>
+        <span class="label">Lyric letters</span><div class="row" id="letterChips"></div>
+        <span class="label">Auto-sync to the audio</span><div class="row" id="syncChips"></div>
         <p class="hint" style="margin-top:8px">Move the mouse to drift through the sky; hover a constellation to name it. Space plays and pauses, arrow keys skip 5 seconds, N and P change songs, F is full screen, L opens the playlist. Settings are remembered on this device.</p>
       </div>
     </div>
@@ -200,7 +217,7 @@ const CONST = [
 
 // Songs published next to the page (loaded with fetch).
 const BUILTIN = [
-  {name:'Yetu Pone', artist:'Kaala Bhairava · Dear Comrade (2019)', url:'songs/yetu-pone.mp3', lrc:''}
+  {name:'Yetu Pone', artist:'Kaala Bhairava \u00B7 Dear Comrade (2019)', url:'songs/yetu-pone.mp3', lrc:'', q:{title:'Yetu Pone', artist:'Kaala Bhairava', album:'Dear Comrade'}}
 ];
 const DEMOS = [
   {name:'ఆకాశం (Aakasam)', artist:'Stellar demo · Telugu', spec:{bpm:120, bars:24, prog:[[57,60,64],[53,57,60],[48,52,55],[55,59,62]], roots:[45,41,48,43], lead:'square', cut:1400, breaks:[8,9]},
@@ -258,7 +275,7 @@ const DEMOS = [
 ];
 
 // ---------- settings ----------
-const S = {style:'auto', scene:'observatory', viz:'orbits', cam:true, intro:true, names:true, lines:true, parts:'high', quality:'cine'};
+const S = {style:'auto', scene:'observatory', viz:'orbits', cam:true, intro:true, names:true, lines:true, parts:'high', quality:'cine', roman:false, autosync:true};
 try { Object.assign(S, JSON.parse(localStorage.getItem('stellar-lyrics') || '{}')); } catch {}
 if (!SCENES[S.scene]) S.scene = 'observatory';
 const save = () => { try { localStorage.setItem('stellar-lyrics', JSON.stringify(S)); } catch {} };
@@ -313,7 +330,7 @@ async function renderDemo(sp) {
 }
 
 // ---------- lyrics parsing ----------
-function parseLyrics(text, duration) {
+function parseLyrics(text, duration, raw) {
   const out = [], plain = [], re = /\[(\d+):(\d+(?:\.\d+)?)\]/g, wre = /<(\d+):(\d+(?:\.\d+)?)>\s*([^<]*)/g;
   const om = text.match(/\[offset:\s*([+-]?\d+)\s*\]/i), off = om ? +om[1] / 1000 : 0;
   for (const raw of text.split(/\r?\n/)) {
@@ -328,6 +345,7 @@ function parseLyrics(text, duration) {
   if (!out.length && plain.length) { const d = duration || plain.length * 4, a = d * 0.04, span = d * 0.9; plain.forEach((w, i) => out.push({t: a + span * i / plain.length, text: w, words: null})); }
   out.sort((x, y) => x.t - y.t);
   out.forEach((l, i) => { l.end = i + 1 < out.length ? out[i + 1].t : (duration || l.t + 4); if (l.words) l.words[l.words.length - 1].end = Math.min(l.words[l.words.length - 1].end, l.end); });
+  if (S.roman && !raw) for (const l of out) { if (l.words) { for (const w of l.words) w.text = roman(w.text); if (l.words[0]) l.words[0].text = capFirst(l.words[0].text); l.text = l.words.map(w => w.text).join(' '); } else l.text = capFirst(roman(l.text)); }
   return out;
 }
 const LEAD = 0.25; // show each line a touch before it is sung, as karaoke players do
@@ -729,9 +747,230 @@ function frame(ts) {
   requestAnimationFrame(frame);
 }
 
+// ---------- lyrics library: LRCLIB lookup, tags, cache ----------
+// LRCLIB (lrclib.net) is a free, open database of synced lyrics. Lyrics are fetched when a song plays, never shipped with the app.
+const LRCLIB = 'https://lrclib.net/api', LRC_CLIENT = 'Stellar lyric player (github.com/darkprime2324-dev/Musical-)';
+let onlineBlocked = false;
+function cleanTitle(s) {
+  if (!s) return '';
+  s = String(s).replace(/\.(mp3|m4a|aac|flac|wav|ogg|opus)$/i, '').replace(/_+/g, ' ');
+  const junk = /(mp3|\.co\b|\.com|\.in\b|\.net|www\.|kbps|songs?\.|naa ?songs|download|320|128)/i;
+  const parts = s.split(/\s*(?:::|\||\s-\s|\s–\s)\s*/).map(x => x.replace(/[([][^)\]]*(kbps|mp3|www|\.com|\.co)[^)\]]*[)\]]/ig, '').trim()).filter(x => x && !junk.test(x));
+  return (parts[0] || s).replace(/\s{2,}/g, ' ').trim();
+}
+async function readTags(file) {
+  try {
+    const head = new Uint8Array(await file.slice(0, 10).arrayBuffer());
+    if (head[0] !== 0x49 || head[1] !== 0x44 || head[2] !== 0x33) return {};
+    const ver = head[3], size = (head[6] & 127) << 21 | (head[7] & 127) << 14 | (head[8] & 127) << 7 | (head[9] & 127);
+    const b = new Uint8Array(await file.slice(10, 10 + Math.min(size, 2e6)).arrayBuffer()), out = {};
+    let p = 0;
+    while (p + 10 <= b.length) {
+      const id = String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]); if (!/^[A-Z0-9]{4}$/.test(id)) break;
+      const fs = ver === 4 ? ((b[p + 4] & 127) << 21 | (b[p + 5] & 127) << 14 | (b[p + 6] & 127) << 7 | (b[p + 7] & 127)) : ((b[p + 4] << 24 | b[p + 5] << 16 | b[p + 6] << 8 | b[p + 7]) >>> 0);
+      if (fs <= 0 || p + 10 + fs > b.length) break;
+      if ((id === 'TIT2' || id === 'TPE1' || id === 'TALB') && fs > 1) {
+        const enc = b[p + 10]; let data = b.subarray(p + 11, p + 10 + fs), label = enc === 0 ? 'latin1' : enc === 3 ? 'utf-8' : enc === 2 ? 'utf-16be' : 'utf-16le';
+        if (enc === 1 && data[0] === 0xFE && data[1] === 0xFF) { label = 'utf-16be'; data = data.subarray(2); } else if (enc === 1 && data[0] === 0xFF && data[1] === 0xFE) data = data.subarray(2);
+        out[id] = new TextDecoder(label).decode(data).replace(/\0/g, ' ').trim();
+      }
+      p += 10 + fs;
+    }
+    return {title: out.TIT2, artist: out.TPE1, album: out.TALB};
+  } catch { return {}; }
+}
+const cacheKey = tr => 'stellar-lrc:' + [tr.meta && tr.meta.title || tr.name, tr.meta && tr.meta.artist || '', Math.round(tr.buffer ? tr.buffer.duration : 0)].join('|').toLowerCase();
+function cacheGet(tr) { try { return localStorage.getItem(cacheKey(tr)) || ''; } catch { return ''; } }
+function cacheSet(tr, text) { if (!tr || tr.spec) return; try { localStorage.setItem(cacheKey(tr), text); } catch {} }
+async function lrclib(path, params) {
+  const u = new URL(LRCLIB + path); for (const [k, v] of Object.entries(params)) if (v) u.searchParams.set(k, v);
+  const r = await fetch(u, {headers: {'Lrclib-Client': LRC_CLIENT}});
+  if (r.status === 404) return null; if (!r.ok) throw new Error('LRCLIB answered ' + r.status);
+  return r.json();
+}
+async function searchLyrics(title, artist) {
+  let rs = artist ? await lrclib('/search', {track_name: title, artist_name: artist}) : null;
+  if (!rs || !rs.length) rs = await lrclib('/search', {q: [title, artist].filter(Boolean).join(' ')});
+  if ((!rs || !rs.length) && artist) rs = await lrclib('/search', {q: title});
+  return rs || [];
+}
+function rankResults(rs, duration) {
+  return rs.filter(r => !r.instrumental && (r.syncedLyrics || r.plainLyrics))
+    .map(r => ({r, s: (r.syncedLyrics ? 0 : 1000) + Math.abs((r.duration || 0) - (duration || r.duration || 0))}))
+    .sort((a, b) => a.s - b.s).map(x => x.r);
+}
+function lrcFromResult(r) {
+  const head = `[ti:${r.trackName || ''}]\n[ar:${r.artistName || ''}]\n[al:${r.albumName || ''}]\n[by:LRCLIB #${r.id}]\n`;
+  return head + (r.syncedLyrics || r.plainLyrics || '').replace(/\r/g, '');
+}
+function blockedNotice() {
+  if (onlineBlocked) return; onlineBlocked = true;
+  toast('Finding lyrics online is blocked inside this preview. Open app/musical-stage.html from your computer to use it, or paste lyrics in the Lyrics panel.');
+}
+async function autoFind(tr) {
+  const {title, artist} = tr.meta || {};
+  if (!title || onlineBlocked) return false;
+  setSyncPill('Finding lyrics');
+  try {
+    const best = rankResults(await searchLyrics(title, artist), dur())[0];
+    if (!best) { setSyncPill(''); toast(`No lyrics found online for ${title}. Paste them in the Lyrics panel.`); return false; }
+    tr.lrc = lrcFromResult(best); tr.synced = false; cacheSet(tr, tr.lrc);
+    toast(`Lyrics for ${best.trackName} found on LRCLIB${best.syncedLyrics ? ', with timings' : ' (no timings)'}`);
+    return true;
+  } catch (e) { setSyncPill(''); if (e instanceof TypeError) blockedNotice(); else toast('Lyrics search failed: ' + e.message); return false; }
+}
+async function afterLoad(tr, i) {
+  if (tr.spec) return;
+  if (!tr.meta) { const tags = tr.q ? {...tr.q} : (tr.file ? await readTags(tr.file) : {}); tr.meta = {title: cleanTitle(tags.title || tr.name), artist: cleanTitle(tags.artist || ''), album: tags.album || ''}; }
+  if (cur !== i) return;
+  $('#qTitle').value = tr.meta.title; $('#qArtist').value = tr.meta.artist;
+  if (!tr.lrc) { const c = cacheGet(tr); if (c) { tr.lrc = c; tr.synced = /auto-synced|\[offset:|tap-synced/.test(c); } }
+  if (!tr.lrc) await autoFind(tr);
+  if (cur !== i) return;
+  if (tr.lrc) { lines = parseLyrics(tr.lrc, dur()); lyricsText.value = tr.lrc; curIdx = -2; paintTracks(); }
+  if (tr.lrc && !tr.synced && S.autosync && /\[\d+:\d/.test(tr.lrc)) autoSync(tr, {});
+}
+$('#qGo').addEventListener('click', async () => {
+  const title = $('#qTitle').value.trim(), artist = $('#qArtist').value.trim(), box = $('#qResults');
+  if (!title) return toast('Type the song title first.');
+  box.innerHTML = '<p class="hint">Searching LRCLIB...</p>';
+  let rs;
+  try { rs = rankResults(await searchLyrics(title, artist), dur()); }
+  catch (e) { box.innerHTML = ''; if (e instanceof TypeError) { onlineBlocked = false; blockedNotice(); } else toast('Lyrics search failed: ' + e.message); return; }
+  box.innerHTML = '';
+  if (!rs.length) { box.innerHTML = '<p class="hint">Nothing found. Try the title alone, or a different spelling.</p>'; return; }
+  for (const r of rs.slice(0, 8)) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'tr';
+    const n = document.createElement('div'); n.className = 'n'; const t = document.createElement('b'); t.textContent = r.trackName; const sm = document.createElement('small');
+    const near = buffer && Math.abs((r.duration || 0) - dur()) < 3;
+    sm.textContent = [r.artistName, r.albumName, r.duration ? fmt(r.duration) : '', near ? 'same length as your song' : ''].filter(Boolean).join(' · '); n.append(t, sm);
+    const badge = document.createElement('span'); badge.className = 'badge' + (r.syncedLyrics ? ' ok' : ''); badge.textContent = r.syncedLyrics ? 'Timed' : 'Text only';
+    b.append(n, badge);
+    b.addEventListener('click', () => { const tr = tracks[cur]; if (!tr) return toast('Add a song first.'); tr.lrc = lrcFromResult(r); tr.synced = false; cacheSet(tr, tr.lrc); lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); curIdx = -2; sheet.hidden = true; paintTracks();
+      toast(`Using lyrics from LRCLIB #${r.id}`); if (S.autosync && r.syncedLyrics) autoSync(tr, {}); });
+    box.appendChild(b);
+  }
+});
+
+// ---------- auto-sync: line the lyrics up with the singing in this exact recording ----------
+// Filters the audio to the vocal band, finds where sound starts (onsets), then slides the whole lyric sheet to the offset
+// where line starts land on onsets most often, and finally nudges each line onto its own nearest onset.
+const onsetCache = new WeakMap();
+async function vocalOnsets(buf) {
+  if (onsetCache.has(buf)) return onsetCache.get(buf);
+  const sr = 11025, Off = window.OfflineAudioContext || window.webkitOfflineAudioContext, oc = new Off(1, Math.ceil(buf.duration * sr), sr);
+  const s = oc.createBufferSource(); s.buffer = buf;
+  const hp1 = oc.createBiquadFilter(), hp2 = oc.createBiquadFilter(), lp = oc.createBiquadFilter();
+  hp1.type = 'highpass'; hp2.type = 'highpass'; hp1.frequency.value = 280; hp2.frequency.value = 280; lp.type = 'lowpass'; lp.frequency.value = 3400;
+  s.connect(hp1).connect(hp2).connect(lp).connect(oc.destination); s.start();
+  const x = (await oc.startRendering()).getChannelData(0), hop = Math.round(sr / 100), n = Math.floor(x.length / hop), p = new Float64Array(n);
+  for (let i = 0; i < n; i++) { let a = 0; for (let k = i * hop, end = k + hop; k < end; k++) a += x[k] * x[k]; p[i] = a / hop; }
+  // Loudness over a 150 ms window: long enough to ignore drum hits and plucks, short enough to catch a vocal entry.
+  const W = 15, e = new Float32Array(n); let run = 0;
+  for (let i = 0; i < n + W; i++) { if (i < n) run += p[i]; if (i - W >= 0) run -= p[i - W]; const c = i - (W >> 1); if (c >= 0 && c < n) e[c] = Math.log(1e-9 + run / W); }
+  const o = new Float32Array(n);
+  for (let i = 3; i < n; i++) o[i] = Math.max(0, e[i] - Math.max(e[i - 1], e[i - 2], e[i - 3]));
+  const sm = new Float32Array(n); let mean = 0;
+  for (let i = 0; i < n; i++) { let a = 0, c = 0; for (let k = -2; k <= 2; k++) if (i + k >= 0 && i + k < n) { a += o[i + k]; c++; } sm[i] = a / c; mean += sm[i]; }
+  mean /= n; let v = 0; for (let i = 0; i < n; i++) v += (sm[i] - mean) ** 2; const sd = Math.sqrt(v / n) || 1;
+  for (let i = 0; i < n; i++) sm[i] = (sm[i] - mean) / sd;
+  onsetCache.set(buf, sm); return sm;
+}
+function onsetScore(o, starts, off) {
+  let s = 0;
+  for (const t of starts) { const f = Math.round((t + off) * 100); let m = -1; for (let k = f - 4; k <= f + 12; k++) if (k >= 0 && k < o.length && o[k] > m) m = o[k]; s += Math.max(-1, Math.min(m, 6)); }
+  return s / starts.length;
+}
+// Finds the one shift (within 8 s either way) that puts line starts on vocal entries. Applies it only when that shift
+// clearly beats every other candidate, so an unclear match never makes things worse.
+function findOffset(o, starts) {
+  const offs = [], sc = []; for (let k = -800; k <= 800; k++) { offs.push(k / 100); sc.push(onsetScore(o, starts, k / 100)); }
+  const mean = sc.reduce((a, b) => a + b, 0) / sc.length, sd = Math.sqrt(sc.reduce((a, b) => a + (b - mean) ** 2, 0) / sc.length) || 1;
+  let bi = 0; for (let i = 1; i < sc.length; i++) if (sc[i] > sc[bi]) bi = i;
+  let si = -1; for (let i = 0; i < sc.length; i++) if (Math.abs(offs[i] - offs[bi]) > 0.3 && (si < 0 || sc[i] > sc[si])) si = i;
+  return {offset: offs[bi], z: (sc[bi] - mean) / sd, lead: si < 0 ? 9 : (sc[bi] - sc[si]) / sd};
+}
+const lrcTime = t => { const cs = Math.round(Math.max(0, t) * 100), m = Math.floor(cs / 6000), s = (cs % 6000) / 100; return `${String(m).padStart(2, '0')}:${s.toFixed(2).padStart(5, '0')}`; };
+function toLrc(ls, meta, by) { return [...meta, by, ...ls.map(l => `[${lrcTime(l.t)}]` + (l.words ? l.words.map(w => `<${lrcTime(w.t)}>` + w.text).join(' ') : l.text))].join('\n'); }
+let syncRun = 0;
+async function autoSync(tr, {quiet}) {
+  if (!tr || !buffer || tr.spec) return;
+  const run = ++syncRun, raw = parseLyrics(tr.lrc || '', dur(), true), sung = raw.filter(l => l.text);
+  if (sung.length < 4) { if (!quiet) toast('Auto-sync needs timed lyrics with at least four lines.'); return; }
+  setSyncPill('Syncing');
+  const o = await vocalOnsets(buffer); if (run !== syncRun || tracks[cur] !== tr) return;
+  const {offset, z, lead} = findOffset(o, sung.map(l => l.t));
+  if (z < 3 || lead < 0.5) { tr.synced = true; setSyncPill('Sync: no clear match'); if (!quiet) toast('No clear match between these lyrics and the singing, so the timings were left as they were. Use [ and ] to nudge them.'); return; }
+  if (Math.abs(offset) < 0.05) { tr.synced = true; setSyncPill('In sync', true); if (!quiet) toast('These lyrics already match this recording.'); return; }
+  for (const l of raw) { l.t += offset; if (l.words) for (const w of l.words) { w.t += offset; w.end += offset; } }
+  const meta = (tr.lrc.match(/^\[(ti|ar|al):[^\]]*\]$/gim) || []), sign = offset >= 0 ? '+' : '-', src = (tr.lrc.match(/\[by:(?:[^\]]*?)(LRCLIB #\d+)/) || [, 'your lyrics'])[1];
+  tr.lrc = toLrc(raw, meta, `[by:auto-synced to this recording ${sign}${Math.abs(offset).toFixed(2)} s, ${src}]`);
+  tr.synced = true; cacheSet(tr, tr.lrc); lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); curIdx = -2;
+  setSyncPill(`Synced ${sign}${Math.abs(offset).toFixed(2)} s`, true);
+  if (!quiet) toast(`Auto-synced: lyrics moved ${Math.abs(offset).toFixed(2)} s ${offset < 0 ? 'earlier' : 'later'} to match this recording`);
+}
+function setSyncPill(text, ok) { const el = $('#syncPill'); el.hidden = !text; el.textContent = text; el.classList.toggle('on', !!ok); }
+$('#autoSyncBtn').addEventListener('click', () => { const tr = tracks[cur]; if (!tr) return toast('Add a song first.'); if (tr.spec) return toast('The demo songs are generated in time with their lyrics already.'); tr.lrc = lyricsText.value; sheet.hidden = true; autoSync(tr, {}); });
+
+// ---------- English letters for Telugu and Hindi lyrics ----------
+const TE = {cons: {'క':'k','ఖ':'kh','గ':'g','ఘ':'gh','ఙ':'n','చ':'ch','ఛ':'chh','జ':'j','ఝ':'jh','ఞ':'nj','ట':'t','ఠ':'th','డ':'d','ఢ':'dh','ణ':'n','త':'t','థ':'th','ద':'d','ధ':'dh','న':'n','ప':'p','ఫ':'ph','బ':'b','భ':'bh','మ':'m','య':'y','ర':'r','ఱ':'r','ల':'l','ళ':'l','ఴ':'zh','వ':'v','శ':'sh','ష':'sh','స':'s','హ':'h'},
+  vow: {'అ':'a','ఆ':'aa','ఇ':'i','ఈ':'ee','ఉ':'u','ఊ':'oo','ఋ':'ru','ౠ':'roo','ఎ':'e','ఏ':'e','ఐ':'ai','ఒ':'o','ఓ':'o','ఔ':'au'},
+  sign: {'ా':'aa','ి':'i','ీ':'ee','ు':'u','ూ':'oo','ృ':'ru','ౄ':'roo','ె':'e','ే':'e','ై':'ai','ొ':'o','ో':'o','ౌ':'au'},
+  virama: '్', anus: 'ం', candra: 'ఁ', visarga: 'ః', schwaDrop: false, yInitial: {'ఎ': 'ye', 'ఏ': 'ye'}};
+const HI = {cons: {'क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'n','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'n','ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n','प':'p','फ':'ph','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','ळ':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h','क़':'q','ख़':'kh','ग़':'g','ज़':'z','ड़':'r','ढ़':'rh','फ़':'f','य़':'y'},
+  vow: {'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ऋ':'ri','ए':'e','ऐ':'ai','ओ':'o','औ':'au','ऑ':'o','ऍ':'e'},
+  sign: {'ा':'aa','ि':'i','ी':'ee','ु':'u','ू':'oo','ृ':'ri','े':'e','ै':'ai','ो':'o','ौ':'au','ॉ':'o','ॅ':'e'},
+  virama: '्', anus: 'ं', candra: 'ँ', visarga: 'ः', nukta: '़', schwaDrop: true, yInitial: {}};
+const NUKTA = {'क':'q','ख':'kh','ग':'g','ज':'z','ड':'r','ढ':'rh','फ':'f'};
+function romanWord(w, L) {
+  const ch = Array.from(w); let out = '';
+  for (let i = 0; i < ch.length; i++) {
+    const c = ch[i];
+    if (L.cons[c] != null) {
+      let base = L.cons[c], j = i + 1;
+      if (L.nukta && ch[j] === L.nukta) { base = NUKTA[c] || base; j++; }
+      const nx = ch[j];
+      if (nx === L.virama) { out += base; i = j; continue; }
+      if (L.sign[nx] != null) { out += base + L.sign[nx]; i = j; continue; }
+      out += base + (L.schwaDrop && j >= ch.length && out ? '' : 'a'); i = j - 1; continue;
+    }
+    if (L.vow[c] != null) { out += (i === 0 && L.yInitial[c]) || L.vow[c]; continue; }
+    if (c === L.anus || c === L.candra) { const nx = L.cons[ch[i + 1]] || ''; out += /^[pbm]/.test(nx) || (!nx && L === TE) ? 'm' : 'n'; continue; }
+    if (c === L.visarga) { out += 'h'; continue; }
+    out += c;
+  }
+  return out;
+}
+function roman(text) {
+  return text.split(/(\s+)/).map(tok => /[ఀ-౿]/.test(tok) ? romanWord(tok.normalize('NFC'), TE) : /[ऀ-ॿ]/.test(tok) ? romanWord(tok.normalize('NFC'), HI) : tok).join('');
+}
+const capFirst = s => s.replace(/^(\W*)(\p{Ll})/u, (m, a, b) => a + b.toUpperCase());
+function reparse() { const tr = tracks[cur]; if (tr) { lines = parseLyrics(tr.lrc || '', dur()); curIdx = -2; layoutCache.clear(); } }
+
+// ---------- open a whole folder, or drop files ----------
+async function addFiles(fileList) {
+  const files = [...fileList], audio = files.filter(f => /\.(mp3|m4a|aac|flac|wav|ogg|opus)$/i.test(f.name)), texts = files.filter(f => /\.(lrc|txt)$/i.test(f.name));
+  if (!audio.length && texts.length && tracks[cur]) { lyricsText.value = await texts[0].text(); $('#applyLyrics').click(); return; }
+  if (!audio.length) return toast('No songs found there. Supported: MP3, M4A, AAC, FLAC, WAV, OGG, OPUS.');
+  const base = f => (f.webkitRelativePath || f.name).replace(/\.[^.]+$/, '').toLowerCase(), lrcBy = new Map(texts.map(f => [base(f), f]));
+  audio.sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name));
+  const first = tracks.length; let paired = 0;
+  for (const f of audio) { const l = lrcBy.get(base(f)), t = {name: cleanTitle(f.name), artist: '', lrc: '', file: f, buffer: null}; if (l) { t.lrc = await l.text(); paired++; } tracks.push(t); }
+  paintTracks(); sheet.hidden = true;
+  toast(`Added ${audio.length} song${audio.length > 1 ? 's' : ''}${paired ? `, ${paired} with their own lyrics file` : ''}. The rest get lyrics from LRCLIB as they play.`);
+  selectTrack(first, true);
+}
+$('#addFolder').addEventListener('click', () => $('#folderFile').click());
+$('#folderFile').addEventListener('change', e => { const f = e.target.files; addFiles(f); e.target.value = ''; });
+const stageEl = $('#stageWrap');
+stageEl.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); $('#dropHint').hidden = false; } });
+stageEl.addEventListener('dragleave', e => { if (e.target === stageEl || e.target === canvas) $('#dropHint').hidden = true; });
+stageEl.addEventListener('drop', e => { e.preventDefault(); $('#dropHint').hidden = true; if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+
 // ---------- tracks ----------
 async function selectTrack(i, autoplay) {
   if (i < 0 || i >= tracks.length) return;
+  setSyncPill(''); $('#qResults').innerHTML = '';
   stopAll(); cur = i; const tr = tracks[i]; buffer = null; lines = []; curIdx = -2; lastBeatT = -1; intervals = [];
   lyricsText.value = tr.lrc || ''; updateUI(); paintTracks();
   if (!tr.buffer) { tr.loading = true; updateUI();
@@ -739,8 +978,9 @@ async function selectTrack(i, autoplay) {
     catch { tr.loading = false; updateUI(); toast(tr.url ? `${tr.name} could not be loaded.` : `${tr.name} could not be played. Try an MP3, M4A, WAV or OGG file.`); return; }
     tr.loading = false; if (cur !== i) return; }
   buffer = tr.buffer; lines = parseLyrics(tr.lrc || '', buffer.duration); updateUI(); paintTracks(); if (autoplay) play();
+  afterLoad(tr, i);
 }
-function addDemos() { for (const d of [...BUILTIN, ...DEMOS]) if (!tracks.some(t => t.lrc === d.lrc)) tracks.push({name: d.name, artist: d.artist, lrc: d.lrc, spec: d.spec, url: d.url, buffer: null}); paintTracks(); }
+function addDemos() { for (const d of [...BUILTIN, ...DEMOS]) if (!tracks.some(t => t.name === d.name)) tracks.push({name: d.name, artist: d.artist, lrc: d.lrc, spec: d.spec, url: d.url, q: d.q, buffer: null}); paintTracks(); }
 function paintTracks() {
   const el = $('#trackList'); el.innerHTML = '';
   if (!tracks.length) { el.innerHTML = '<p class="hint">No songs yet. Add songs from this device, or add the demo songs.</p>'; return; }
@@ -779,7 +1019,7 @@ function nudge(ms) {
   const tr = tracks[cur]; if (!tr || !lines.length) return;
   const om = (tr.lrc || '').match(/\[offset:\s*([+-]?\d+)\s*\]/i), cur0 = om ? +om[1] : 0, next = cur0 - ms;
   tr.lrc = om ? tr.lrc.replace(om[0], `[offset:${next}]`) : `[offset:${next}]\n` + (tr.lrc || '');
-  lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); curIdx = -2;
+  tr.synced = true; cacheSet(tr, tr.lrc); lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); curIdx = -2;
   const d = -next / 1000; toast(d === 0 ? 'Lyrics back on their original timing' : `Lyrics ${Math.abs(d).toFixed(1)} s ${d > 0 ? 'later' : 'earlier'}  ([ and ] nudge by 0.1 s, { and } by 1 s)`);
 }
 function toggleFS() { const w = $('#stageWrap'); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else if (w.requestFullscreen) w.requestFullscreen().catch(() => toast('Full screen is not available here.')); else toast('Full screen is not available here.'); }
@@ -791,8 +1031,10 @@ $('#addSongs').addEventListener('click', () => $('#songFile').click());
 $('#songFile').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; if (!files.length) return; const first = tracks.length;
   for (const f of files) tracks.push({name: f.name.replace(/\.[^.]+$/, ''), artist: '', lrc: '', file: f, buffer: null}); paintTracks(); toast(files.length === 1 ? `Added ${files[0].name}` : `Added ${files.length} songs`); sheet.hidden = true; selectTrack(first, true); });
 $('#demoBtn').addEventListener('click', () => { const n = tracks.length; addDemos(); if (cur < 0 && tracks.length) selectTrack(0, false); toast(tracks.length > n ? 'Demo songs added' : 'The demo songs are already in the playlist'); });
-$('#applyLyrics').addEventListener('click', () => { const tr = tracks[cur]; if (!tr) return toast('Add a song first.'); tr.lrc = lyricsText.value; lines = parseLyrics(tr.lrc, dur()); curIdx = -2; sheet.hidden = true; toast(lines.length ? `Lyrics applied: ${lines.filter(l => l.text).length} lines` : 'No lyrics found. Paste some lines first.'); });
-$('#lrcBtn').addEventListener('click', () => $('#lrcFile').click()); $('#lrcFile').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (f) lyricsText.value = await f.text(); });
+$('#applyLyrics').addEventListener('click', () => { const tr = tracks[cur]; if (!tr) return toast('Add a song first.'); tr.lrc = lyricsText.value; tr.synced = false; lines = parseLyrics(tr.lrc, dur()); curIdx = -2; sheet.hidden = true; cacheSet(tr, tr.lrc);
+  toast(lines.length ? `Lyrics applied: ${lines.filter(l => l.text).length} lines` : 'No lyrics found. Paste some lines first.');
+  if (lines.length && S.autosync && !tr.spec && /\[\d+:\d/.test(tr.lrc)) autoSync(tr, {}); });
+$('#lrcBtn').addEventListener('click', () => $('#lrcFile').click()); $('#lrcFile').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (f) { lyricsText.value = await f.text(); $('#applyLyrics').click(); } });
 let syncList = [], syncI = 0, syncW = 0, syncStamps = [], syncWords = false;
 const stamp = t => `[${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(2).padStart(5, '0')}]`, wstamp = t => stamp(t).replace('[', '<').replace(']', '>');
 function startSync(words) { syncList = lyricsText.value.split(/\r?\n/).map(l => l.replace(/\[[^\]]*\]|<[^>]*>/g, '').trim()).filter(Boolean);
@@ -806,7 +1048,7 @@ $('#syncTap').addEventListener('click', () => { if (syncI >= syncList.length) re
   lines = parseLyrics(syncText(), dur()); if (syncI >= syncList.length) syncEnd(); else paintSyncNext(); });
 $('#syncDone').addEventListener('click', syncEnd);
 function syncText() { return syncStamps.map(l => stamp(l.t) + (l.words ? l.words.map(w => wstamp(w.t) + w.text).join(' ') : l.text)).join('\n'); }
-function syncEnd() { if ($('#sync').hidden) return; $('#sync').hidden = true; if (!syncStamps.length) return; const tr = tracks[cur]; tr.lrc = syncText(); lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); toast(`Synced ${syncStamps.length} lines${syncWords ? ' word by word' : ''}. Open Lyrics to copy the timed version.`); }
+function syncEnd() { if ($('#sync').hidden) return; $('#sync').hidden = true; if (!syncStamps.length) return; const tr = tracks[cur]; tr.lrc = syncText().replace(/^/, '[by:tap-synced]\n'); tr.synced = true; cacheSet(tr, tr.lrc); lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); toast(`Synced ${syncStamps.length} lines${syncWords ? ' word by word' : ''}. Open Lyrics to copy the timed version.`); }
 $('#copyLrc').addEventListener('click', () => { const txt = lyricsText.value; if (!txt.trim()) return toast('Nothing to copy yet.');
   const done = () => toast('Timed lyrics copied. Save them as a .lrc file next to the song.');
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => { lyricsText.select(); toast('Press Ctrl+C or Cmd+C to copy the selected lyrics.'); }); else { lyricsText.select(); toast('Press Ctrl+C or Cmd+C to copy the selected lyrics.'); } });
@@ -816,7 +1058,9 @@ function chips(el, items, get, set) { el.innerHTML = ''; for (const [id, label] 
 const painters = [
   chips($('#styleChips'), STYLES, () => S.style, v => { S.style = v; if (v !== 'auto') curStyle = v; }),
   chips($('#vizChips'), VIZ, () => S.viz, v => S.viz = v),
-  chips($('#qualChips'), [['cine', 'Cinematic'], ['lite', 'Lite']], () => S.quality, v => S.quality = v)
+  chips($('#qualChips'), [['cine', 'Cinematic'], ['lite', 'Lite']], () => S.quality, v => S.quality = v),
+  chips($('#letterChips'), [['orig', 'As written'], ['roman', 'English letters']], () => S.roman ? 'roman' : 'orig', v => { S.roman = v === 'roman'; reparse(); }),
+  chips($('#syncChips'), [['on', 'On'], ['off', 'Off']], () => S.autosync ? 'on' : 'off', v => { S.autosync = v === 'on'; })
 ];
 const fxEl = $('#fxChips');
 for (const [key, label] of [['lines', 'Constellations'], ['names', 'Star names'], ['cam', 'Camera drift'], ['intro', 'Song intro card']]) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.key = key; b.addEventListener('click', () => { S[key] = !S[key]; save(); paintControls(); }); fxEl.appendChild(b); }
