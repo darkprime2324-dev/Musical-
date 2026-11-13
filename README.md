@@ -22,6 +22,31 @@ python3 -m http.server 8000
 
 then open `http://localhost:8000/app/musical-stage.html`.
 
+## Developing (Vite + React + TypeScript)
+
+The player's source lives in `web/`. `app/musical-stage.html` is the **built output** (one self-contained HTML file, which is what GitHub Pages serves), so edit the source, not that file.
+
+```bash
+cd web
+npm install
+npm run dev        # live-reloading dev server
+npm run build      # typecheck, then write ../app/musical-stage.html
+```
+
+Commit the rebuilt `app/musical-stage.html` with your source changes so the site updates.
+
+| Folder | What's in it |
+| --- | --- |
+| `web/src/components/` | React interface: header, library sidebar, stage, lyrics view, bottom bar, panels |
+| `web/src/sky/` | Canvas renderer: skies, constellations, the eight lyric styles, bloom and grain, frame loop |
+| `web/src/audio/` | Web Audio playback, beat and drop detection, the synthesized demo songs |
+| `web/src/lyrics/` | LRC parsing, English letters for Telugu and Hindi, MP3 tags, LRCLIB lookup, auto-sync |
+| `web/src/spotify/` | Spotify login (PKCE), playlist import, in-page player, follow mode |
+| `web/src/player/` | The library: selecting songs, folders, tap-to-sync, nudging |
+| `web/src/core/` | Settings, shared state, types, helpers |
+
+The engine keeps its state in plain objects that the canvas reads every frame; React components subscribe to small signals and re-render when the engine reports a change.
+
 ## Spotify playlists
 
 Paste a Spotify playlist, album or song link (Playlist -> *Add from Spotify*, or just paste anywhere on the page). Stellar reads the song list through Spotify's official Web API, shows the album covers, and loads each song's synced lyrics from LRCLIB, matched to the exact Spotify release by length.
