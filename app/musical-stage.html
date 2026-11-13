@@ -92,6 +92,10 @@ input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:4px}
 .hint code{color:var(--fg);background:var(--raise);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12px}
 .find{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .findrow{display:flex;flex-wrap:wrap;gap:8px}
+.spsetup summary{cursor:pointer;font:500 13px var(--ui);color:var(--fg);margin:4px 0}
+.spsetup ol{padding-left:18px;margin:8px 0 10px;display:flex;flex-direction:column;gap:8px}
+.spsetup a{color:var(--accent)}
+#spStatus:empty{display:none}
 .findrow input{flex:1 1 160px;min-width:0;background:var(--ink);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:13px var(--ui)}
 .badge{flex:none;font:500 10px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted)}
 .badge.ok{color:var(--accent);border-color:var(--accent)}
@@ -194,6 +198,10 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
       <input type="file" id="lrcFile" accept=".lrc,.txt,text/plain" hidden>
     </div>
     <div id="panPlaylist" hidden>
+      <div class="find">
+        <div class="findrow"><input id="spLink" type="text" placeholder="Paste a Spotify playlist, album or song link" aria-label="Spotify link"><button class="btn primary" id="spGo" type="button">Add from Spotify</button></div>
+        <p class="hint" id="spStatus" aria-live="polite"></p>
+      </div>
       <p class="hint">Songs play in order and move to the next one automatically. Open a whole folder at once: a <code>.lrc</code> file with the same name as a song is used as its lyrics, and songs without one look theirs up on LRCLIB. You can also drop files onto the sky.</p>
       <div class="tracks" id="trackList"></div>
       <div class="row" style="margin-top:10px">
@@ -205,6 +213,18 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
     </div>
     <div id="panSettings" hidden>
       <div class="set">
+        <span class="label">Spotify</span>
+        <p class="hint" id="spConn">Not connected</p>
+        <div class="row"><button class="btn primary" id="spLogin" type="button">Connect Spotify</button><button class="btn" id="spLogout" type="button" hidden>Disconnect</button></div>
+        <details class="spsetup"><summary>One-time setup: your Spotify Client ID</summary>
+          <ol class="hint">
+            <li>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>, log in with your Spotify account and choose <b>Create app</b>.</li>
+            <li>Any name and description. Under <b>Redirect URIs</b> add exactly <code id="spRedirect"></code> <button class="btn" id="spCopyRedirect" type="button">Copy</button></li>
+            <li>Tick <b>Web API</b> and <b>Web Playback SDK</b>, save, then copy the app's <b>Client ID</b> here.</li>
+          </ol>
+          <div class="findrow"><input id="spClient" type="text" placeholder="Client ID" aria-label="Spotify Client ID" spellcheck="false" autocomplete="off"><button class="btn" id="spClientSave" type="button">Save</button></div>
+        </details>
+        <span class="label">Songs played in Spotify</span><div class="row" id="followChips"></div>
         <span class="label">Visualizer</span><div class="row" id="vizChips"></div>
         <span class="label">Sky</span><div class="row" id="fxChips"></div>
         <span class="label">Quality</span><div class="row" id="qualChips"></div>
@@ -319,7 +339,7 @@ const DEMOS = [
 ];
 
 // ---------- settings ----------
-const S = {style:'auto', scene:'observatory', viz:'orbits', cam:true, intro:true, names:true, lines:true, parts:'high', quality:'cine', roman:false, autosync:true};
+const S = {style:'auto', scene:'observatory', viz:'orbits', cam:true, intro:true, names:true, lines:true, parts:'high', quality:'cine', roman:false, autosync:true, spFollowAll:true};
 try { Object.assign(S, JSON.parse(localStorage.getItem('stellar-lyrics') || '{}')); } catch {}
 if (!SCENES[S.scene]) S.scene = 'observatory';
 if (S.viewVer !== 2) { S.view = 'list'; S.roman = true; S.viewVer = 2; }
@@ -335,10 +355,11 @@ function ensureAC() {
     freq = new Uint8Array(analyser.frequencyBinCount); tdata = new Uint8Array(analyser.fftSize); }
   return ac;
 }
-const dur = () => buffer ? buffer.duration : 0;
-const now = () => playing ? Math.min(ac.currentTime - startedAt, dur()) : offset;
+const dur = () => (tracks[cur] && tracks[cur].sp) ? tracks[cur].sp.durationMs / 1000 : buffer ? buffer.duration : 0;
+const now = () => (tracks[cur] && tracks[cur].sp) ? spNow() : playing && ac ? Math.min(ac.currentTime - startedAt, dur()) : offset;
 let trackStartT = 0;
 function play() {
+  if (tracks[cur] && tracks[cur].sp) return spPlay();
   if (!buffer) return; ensureAC(); ac.resume();
   if (offset >= dur() - 0.05) offset = 0; if (offset < 0.3) startIntro();
   const s = ac.createBufferSource(); s.buffer = buffer; s.connect(analyser);
@@ -347,8 +368,8 @@ function play() {
   try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch {}
   updateUI();
 }
-function pause() { if (!playing) return; offset = now(); playing = false; const s = src; src = null; try { s.stop(); } catch {} updateUI(); }
-function seek(t) { const was = playing; if (was) pause(); offset = clamp(t, 0, dur()); lastBeatT = -1; if (was) play(); else updateUI(); }
+function pause() { if (tracks[cur] && tracks[cur].sp) { spPause(); return; } if (!playing) return; offset = now(); playing = false; const s = src; src = null; try { s.stop(); } catch {} updateUI(); }
+function seek(t) { if (tracks[cur] && tracks[cur].sp) { spSeek(t); return; } const was = playing; if (was) pause(); offset = clamp(t, 0, dur()); lastBeatT = -1; if (was) play(); else updateUI(); }
 function stopAll() { pause(); offset = 0; }
 
 async function renderDemo(sp) {
@@ -788,7 +809,7 @@ function frame(ts) {
   if (hoverConst && !RM) { g.font = `400 11px ${MONO}`; g.fillStyle = P.accent; g.globalAlpha = 0.8; g.textAlign = 'right'; g.fillText(('constellation · ' + hoverConst.name).toUpperCase(), W - 16, H - 16); g.textAlign = 'left'; g.globalAlpha = 1; }
   post(P);
   if (!RM && drop > 0.05) { g.globalAlpha = drop * 0.3; g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
-  if (S.view !== 'list') drawIntro(dt); tickUI(); tickLyricView();
+  if (S.view !== 'list') drawIntro(dt); tickUI(); tickLyricView(); spPoll();
   requestAnimationFrame(frame);
 }
 
@@ -831,7 +852,7 @@ async function readTags(file) {
     return {title: out.TIT2, artist: out.TPE1, album: out.TALB, cover: out.cover};
   } catch { return {}; }
 }
-const cacheKey = tr => 'stellar-lrc:' + [tr.meta && tr.meta.title || tr.name, tr.meta && tr.meta.artist || '', Math.round(tr.buffer ? tr.buffer.duration : 0)].join('|').toLowerCase();
+const cacheKey = tr => 'stellar-lrc:' + [tr.meta && tr.meta.title || tr.name, tr.meta && tr.meta.artist || '', Math.round(tr.buffer ? tr.buffer.duration : tr.sp ? tr.sp.durationMs / 1000 : 0)].join('|').toLowerCase();
 function cacheGet(tr) { try { return localStorage.getItem(cacheKey(tr)) || ''; } catch { return ''; } }
 function cacheSet(tr, text) { if (!tr || tr.spec) return; try { localStorage.setItem(cacheKey(tr), text); } catch {} }
 async function lrclib(path, params) {
@@ -864,9 +885,11 @@ async function autoFind(tr) {
   if (!title || onlineBlocked) return false;
   setSyncPill('Finding lyrics');
   try {
-    const best = rankResults(await searchLyrics(title, artist), dur())[0];
+    let best = null;
+    if (tr.sp) { try { const gm = await lrclib('/get', {track_name: title, artist_name: artist, album_name: tr.meta.album, duration: Math.round(tr.sp.durationMs / 1000)}); if (gm && !gm.instrumental && (gm.syncedLyrics || gm.plainLyrics)) best = gm; } catch (e) { if (e instanceof TypeError) throw e; } }
+    if (!best || !best.syncedLyrics) best = rankResults(await searchLyrics(title, artist), dur())[0] || best;
     if (!best) { setSyncPill(''); toast(`No lyrics found online for ${title}. Paste them in the Lyrics panel.`); return false; }
-    tr.lrc = lrcFromResult(best); tr.synced = false; cacheSet(tr, tr.lrc);
+    tr.lrc = lrcFromResult(best); tr.synced = false; cacheSet(tr, tr.lrc); setSyncPill(best.syncedLyrics ? '' : 'Lyrics without timings');
     toast(`Lyrics for ${best.trackName} found on LRCLIB${best.syncedLyrics ? ', with timings' : ' (no timings)'}`);
     return true;
   } catch (e) { setSyncPill(''); if (e instanceof TypeError) blockedNotice(); else toast('Lyrics search failed: ' + e.message); return false; }
@@ -880,7 +903,7 @@ async function afterLoad(tr, i) {
   if (!tr.lrc) await autoFind(tr);
   if (cur !== i) return;
   if (tr.lrc) { lines = parseLyrics(tr.lrc, dur()); lyricsText.value = tr.lrc; curIdx = -2; paintTracks(); }
-  if (tr.lrc && !tr.synced && S.autosync && /\[\d+:\d/.test(tr.lrc)) autoSync(tr, {});
+  if (tr.lrc && !tr.synced && !tr.sp && S.autosync && /\[\d+:\d/.test(tr.lrc)) autoSync(tr, {});
 }
 $('#qGo').addEventListener('click', async () => {
   const title = $('#qTitle').value.trim(), artist = $('#qArtist').value.trim(), box = $('#qResults');
@@ -946,7 +969,8 @@ const lrcTime = t => { const cs = Math.round(Math.max(0, t) * 100), m = Math.flo
 function toLrc(ls, meta, by) { return [...meta, by, ...ls.map(l => `[${lrcTime(l.t)}]` + (l.words ? l.words.map(w => `<${lrcTime(w.t)}>` + w.text).join(' ') : l.text))].join('\n'); }
 let syncRun = 0;
 async function autoSync(tr, {quiet}) {
-  if (!tr || !buffer || tr.spec) return;
+  if (!tr || tr.spec) return;
+  if (!buffer) { if (!quiet && tr.sp) toast('Spotify audio cannot be analysed, so auto-sync is off for Spotify songs. Their lyrics are matched to the exact Spotify release; use [ and ] if one is off.'); return; }
   const run = ++syncRun, raw = parseLyrics(tr.lrc || '', dur(), true), sung = raw.filter(l => l.text);
   if (sung.length < 4) { if (!quiet) toast('Auto-sync needs timed lyrics with at least four lines.'); return; }
   setSyncPill('Syncing');
@@ -1040,7 +1064,7 @@ function paintSide() {
     const n = document.createElement('span'); n.className = 'n';
     const tt = document.createElement('span'); tt.className = 't'; tt.textContent = (i === cur && playing ? '▶ ' : '') + titleOf(t);
     const aa = document.createElement('span'); aa.className = 'a'; aa.textContent = artistOf(t) || (t.loading ? 'Loading' : ' '); n.append(tt, aa);
-    const d = document.createElement('span'); d.className = 'd'; d.textContent = t.buffer ? fmt(t.buffer.duration) : '';
+    const d = document.createElement('span'); d.className = 'd'; d.textContent = t.buffer ? fmt(t.buffer.duration) : t.sp ? fmt(t.sp.durationMs / 1000) : '';
     b.append(c, n, d); b.addEventListener('click', () => selectTrack(i, true)); el.appendChild(b);
   });
 }
@@ -1055,7 +1079,7 @@ function setLvTint(t) {
   const img = new Image(); img.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 8, 8);
     const d = x.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, bb = 0; for (let k = 0; k < d.length; k += 4) { r += d[k]; gg += d[k + 1]; bb += d[k + 2]; }
     const n = d.length / 4, f = 0.42; if (tracks[cur] === t) lv.style.setProperty('--lvbg', `rgba(${Math.round(r / n * f)},${Math.round(gg / n * f)},${Math.round(bb / n * f)},.8)`); } catch {} };
-  img.src = t.cover;
+  img.crossOrigin = 'anonymous'; img.src = t.cover;
 }
 function buildLyricView() {
   lvFor = lines; lvState = ''; lvInner.innerHTML = ''; const t = tracks[cur];
@@ -1097,12 +1121,188 @@ function tickLyricView() {
   } else if (idx < 0 && prevIdx !== idx && performance.now() - lvUserScroll > 3000) lv.scrollTo({top: 0, behavior: 'auto'});
 }
 
+// ---------- Spotify: import playlists, play (Premium) or follow playback (any account) ----------
+// Uses Spotify's official Web API with the PKCE login flow, so no secret is ever stored in the page.
+// Audio never passes through this page: Spotify plays it, the page reads the position and shows the lyrics.
+const SP_SCOPES = 'streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative';
+const spRedirect = () => location.origin + location.pathname;
+const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
+const lsSet = (k, v) => { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, v); } catch {} };
+let spAuth = (() => { try { return JSON.parse(lsGet('stellar-sp-auth') || 'null'); } catch { return null; } })();
+let spUser = null, spPlayer = null, spDevice = null, spSwitching = false, spLastPoll = 0, spFollowNoted = false;
+let spState = {pos: 0, at: 0, paused: true, uri: ''};
+const spTrack = () => tracks[cur] && tracks[cur].sp ? tracks[cur] : null;
+const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+function spParseLink(s) {
+  const m = String(s || '').trim().match(/(?:open\.spotify\.com\/(?:intl-[a-z]+\/)?|spotify:)(playlist|album|track)[/:]([A-Za-z0-9]{10,})/);
+  return m ? {kind: m[1], id: m[2]} : null;
+}
+async function spLogin() {
+  const id = lsGet('stellar-sp-client').trim();
+  if (!id) { openSheet('Settings'); $('#spClient').focus(); return toast('Paste your Spotify Client ID in Settings first (one-time setup).'); }
+  if (window.top !== window.self) return toast('Spotify login cannot open inside this preview. Open your GitHub Pages site to connect Spotify.');
+  if (!window.crypto || !crypto.subtle) return toast('Spotify login needs a secure page: open the player from your https GitHub Pages address.');
+  const v = b64url(crypto.getRandomValues(new Uint8Array(48))), c = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
+  lsSet('stellar-sp-verifier', v);
+  const u = new URL('https://accounts.spotify.com/authorize');
+  for (const [k, val] of Object.entries({response_type: 'code', client_id: id, scope: SP_SCOPES, code_challenge_method: 'S256', code_challenge: c, redirect_uri: spRedirect()})) u.searchParams.set(k, val);
+  try { location.assign(u.toString()); } catch { toast('This page cannot open the Spotify login. Use your GitHub Pages address instead.'); }
+}
+async function spTokenRequest(params) {
+  const r = await fetch('https://accounts.spotify.com/api/token', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams(params)});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error_description || j.error || 'Spotify login failed');
+  spAuth = {access: j.access_token, refresh: j.refresh_token || (spAuth && spAuth.refresh), exp: Date.now() + (j.expires_in || 3600) * 1000 - 60000};
+  lsSet('stellar-sp-auth', JSON.stringify(spAuth));
+}
+async function spHandleRedirect() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('code') && !q.has('error')) return;
+  history.replaceState(null, '', spRedirect());
+  if (q.has('error')) return toast(q.get('error') === 'access_denied' ? 'Spotify login was cancelled.' : 'Spotify login failed: ' + q.get('error'));
+  try { await spTokenRequest({grant_type: 'authorization_code', code: q.get('code'), redirect_uri: spRedirect(), client_id: lsGet('stellar-sp-client').trim(), code_verifier: lsGet('stellar-sp-verifier')}); lsSet('stellar-sp-verifier', ''); }
+  catch (e) { return toast(e.message); }
+  await spAfterLogin();
+  const pending = lsGet('stellar-sp-pending'); lsSet('stellar-sp-pending', '');
+  if (pending) spImport(pending);
+}
+async function spToken() {
+  if (!spAuth) throw new Error('not connected');
+  if (Date.now() > spAuth.exp) await spTokenRequest({grant_type: 'refresh_token', refresh_token: spAuth.refresh, client_id: lsGet('stellar-sp-client').trim()});
+  return spAuth.access;
+}
+async function spApi(path, opts = {}) {
+  const url = path.startsWith('http') ? path : 'https://api.spotify.com/v1' + path;
+  let r = await fetch(url, {...opts, headers: {...(opts.headers || {}), Authorization: 'Bearer ' + await spToken()}});
+  if (r.status === 401 && spAuth && spAuth.refresh) { spAuth.exp = 0; r = await fetch(url, {...opts, headers: {...(opts.headers || {}), Authorization: 'Bearer ' + await spToken()}}); }
+  if (r.status === 204 || r.status === 202) return null;
+  const j = await r.json().catch(() => null);
+  if (!r.ok) { const e = new Error((j && j.error && j.error.message) || ('Spotify answered ' + r.status)); e.status = r.status; throw e; }
+  return j;
+}
+function spDisconnect() { spAuth = null; spUser = null; lsSet('stellar-sp-auth', ''); if (spPlayer) { try { spPlayer.disconnect(); } catch {} spPlayer = null; spDevice = null; } paintSpotify(); toast('Disconnected from Spotify.'); }
+async function spAfterLogin() {
+  try { spUser = await spApi('/me'); } catch (e) { spUser = null; if (e.status === 403) toast('Spotify refused the login. Add your Spotify email under User Management in your Spotify app, then connect again.'); else toast('Spotify: ' + e.message); paintSpotify(); return; }
+  paintSpotify();
+  if (spUser.product === 'premium') spInitPlayer().catch(() => {});
+}
+function loadSdk() {
+  return new Promise((res, rej) => { if (window.Spotify && window.Spotify.Player) return res(); window.onSpotifyWebPlaybackSDKReady = res;
+    const s = document.createElement('script'); s.src = 'https://sdk.scdn.co/spotify-player.js'; s.onerror = rej; document.head.appendChild(s); });
+}
+function spSetState(pos, paused, uri) { spState = {pos, at: performance.now(), paused, uri}; if (spTrack() && spTrack().sp.uri === uri) { if (playing !== !paused) { playing = !paused; updateUI(); paintSide(); } } spFollow(uri); }
+async function spInitPlayer() {
+  await loadSdk();
+  spPlayer = new window.Spotify.Player({name: 'Stellar lyric player', getOAuthToken: cb => { spToken().then(cb).catch(() => {}); }, volume: 0.8});
+  spPlayer.addListener('ready', ({device_id}) => { spDevice = device_id; paintSpotify(); });
+  spPlayer.addListener('not_ready', () => { spDevice = null; paintSpotify(); });
+  spPlayer.addListener('account_error', () => { spPlayer = null; spDevice = null; paintSpotify(); });
+  spPlayer.addListener('initialization_error', () => { spPlayer = null; spDevice = null; paintSpotify(); });
+  spPlayer.addListener('player_state_changed', st => { if (!st) return; const ct = st.track_window && st.track_window.current_track; spSetState(st.position / 1000, st.paused, ct ? (ct.linked_from && ct.linked_from.uri) || ct.uri : ''); });
+  await spPlayer.connect();
+}
+function spNow() {
+  const t = spTrack(); if (!t || spState.uri !== t.sp.uri) return 0;
+  return Math.min(t.sp.durationMs / 1000, spState.pos + (spState.paused ? 0 : (performance.now() - spState.at) / 1000));
+}
+function spFollowHint() { if (spFollowNoted) return; spFollowNoted = true; toast('Start this song in your Spotify app (phone or desktop). The lyrics here follow whatever Spotify is playing.'); }
+async function spPlay() {
+  const t = spTrack(); if (!t) return;
+  if (!spAuth) { lsSet('stellar-sp-pending', ''); return spLogin(); }
+  const same = spState.uri === t.sp.uri, upNext = tracks.slice(cur).filter(x => x.sp).slice(0, 50).map(x => x.sp.uri);
+  try {
+    if (spDevice) {
+      if (same && spPlayer) { await spPlayer.resume(); return; }
+      await spApi('/me/player/play?device_id=' + encodeURIComponent(spDevice), {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({uris: upNext, position_ms: 0})});
+    } else if (spUser && spUser.product === 'premium') {
+      await spApi('/me/player/play', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(same ? {} : {uris: upNext, position_ms: 0})});
+    } else spFollowHint();
+  } catch (e) { if (e.status === 404) toast('Open Spotify on any device first, then press play again.'); else if (e.status === 403) spFollowHint(); else toast('Spotify: ' + e.message); }
+}
+async function spPause() {
+  if (spSwitching || !spTrack() || !spAuth) return;
+  try { if (spPlayer && spDevice) await spPlayer.pause(); else if (spUser && spUser.product === 'premium') await spApi('/me/player/pause', {method: 'PUT'}); } catch {}
+}
+async function spSeek(sec) {
+  if (!spTrack() || !spAuth) return; const ms = Math.max(0, Math.round(sec * 1000));
+  try { if (spPlayer && spDevice) await spPlayer.seek(ms); else if (spUser && spUser.product === 'premium') await spApi('/me/player/seek?position_ms=' + ms, {method: 'PUT'}); else return spFollowHint(); spState.pos = ms / 1000; spState.at = performance.now(); } catch {}
+}
+// Follow mode: whatever Spotify plays (on this page or any device) becomes the current song here, with its lyrics.
+function spFollow(uri) {
+  if (!uri || (spTrack() && spTrack().sp.uri === uri)) return;
+  let i = tracks.findIndex(t => t.sp && t.sp.uri === uri);
+  if (i < 0) return;
+  spSwitching = true; try { selectTrack(i, false); } finally { spSwitching = false; }
+}
+async function spPoll() {
+  if (!spAuth || document.hidden || performance.now() - spLastPoll < (spPlayer && spDevice ? 5000 : 1000)) return;
+  spLastPoll = performance.now();
+  if (spPlayer && spDevice) { try { const st = await spPlayer.getCurrentState(); if (st) { const ct = st.track_window.current_track; spSetState(st.position / 1000, st.paused, (ct.linked_from && ct.linked_from.uri) || ct.uri); return; } } catch {} }
+  try {
+    const p = await spApi('/me/player/currently-playing?additional_types=track');
+    if (!p || !p.item || p.currently_playing_type !== 'track') return;
+    if (!tracks.some(t => t.sp && t.sp.uri === p.item.uri) && S.spFollowAll) { tracks.push(spMakeTrack(p.item)); spSaveLib(); paintTracks(); }
+    spSetState((p.progress_ms || 0) / 1000 + 0.15, !p.is_playing, p.item.uri);
+  } catch {}
+}
+function spMakeTrack(t, album) {
+  const al = t.album || album || {}, img = (al.images || []).slice().sort((a, b) => Math.abs((a.width || 300) - 300) - Math.abs((b.width || 300) - 300))[0];
+  const artist = (t.artists || []).map(a => a.name).join(', ');
+  return {name: t.name, artist, lrc: '', buffer: null, cover: img ? img.url : '', sp: {uri: t.uri, durationMs: t.duration_ms, album: al.name || ''},
+    meta: {title: t.name, artist: (t.artists && t.artists[0] && t.artists[0].name) || artist, album: al.name || ''}};
+}
+function spSaveLib() { lsSet('stellar-sp-lib', JSON.stringify(tracks.filter(t => t.sp).map(t => ({name: t.name, artist: t.artist, cover: t.cover, sp: t.sp, meta: t.meta})))); }
+function spRestoreLib() { try { const l = JSON.parse(lsGet('stellar-sp-lib') || '[]'); for (const x of l.reverse()) if (!tracks.some(t => t.sp && t.sp.uri === x.sp.uri)) tracks.unshift({...x, lrc: '', buffer: null}); } catch {} }
+async function spImport(link) {
+  const ref = spParseLink(link);
+  if (!ref) return toast('That does not look like a Spotify playlist, album or song link.');
+  if (!spAuth) { lsSet('stellar-sp-pending', link); return spLogin(); }
+  const status = $('#spStatus'); status.textContent = 'Reading from Spotify...';
+  let items = [], title = '';
+  try {
+    if (ref.kind === 'track') { const t = await spApi('/tracks/' + ref.id); items = [t]; title = t.name; }
+    else if (ref.kind === 'album') {
+      const a = await spApi('/albums/' + ref.id); title = a.name; let page = a.tracks;
+      while (page) { items.push(...page.items.map(t => ({...t, album: {name: a.name, images: a.images}}))); page = page.next ? await spApi(page.next) : null; }
+    } else {
+      const meta = await spApi('/playlists/' + ref.id + '?fields=name'); title = meta.name;
+      let page = await spApi('/playlists/' + ref.id + '/tracks?limit=100&additional_types=track&fields=next,items(track(name,uri,type,is_local,duration_ms,artists(name),album(name,images)))');
+      while (page) { items.push(...page.items.map(x => x.track).filter(t => t && t.type === 'track' && !t.is_local && t.uri)); page = page.next ? await spApi(page.next) : null; }
+    }
+  } catch (e) {
+    status.textContent = '';
+    if (e.status === 404) return toast('Spotify could not open that list. Spotify-made playlists (Top 50, Discover Weekly and similar) are blocked for apps; copy the songs into your own playlist and use that link.');
+    return toast('Spotify: ' + e.message);
+  }
+  const fresh = []; for (const t of items) if (!tracks.some(x => x.sp && x.sp.uri === t.uri) && !fresh.some(x => x.sp.uri === t.uri)) fresh.push(spMakeTrack(t));
+  const added = fresh.length, at = tracks.filter(x => x.sp).length; tracks.splice(at, 0, ...fresh); if (cur >= at) cur += added; const first = at;
+  spSaveLib(); paintTracks(); status.textContent = ''; sheet.hidden = true;
+  toast(`${title}: ${added} song${added === 1 ? '' : 's'} added from Spotify. Lyrics load as each song plays.`);
+  if (added) selectTrack(first, false);
+}
+function paintSpotify() {
+  const st = $('#spConn'); if (!st) return;
+  st.textContent = !spAuth ? 'Not connected' : !spUser ? 'Connecting' : `Connected as ${spUser.display_name || spUser.id}` + (spDevice ? ' · plays in this page' : spUser.product === 'premium' ? '' : ' · follows your Spotify app (Free account)');
+  $('#spLogin').hidden = !!spAuth; $('#spLogout').hidden = !spAuth;
+}
+$('#spRedirect').textContent = spRedirect();
+$('#spClient').value = lsGet('stellar-sp-client');
+$('#spClientSave').addEventListener('click', () => { const v = $('#spClient').value.trim(); if (!/^[0-9a-f]{32}$/i.test(v)) return toast('A Spotify Client ID is 32 letters and digits. Copy it from your app on developer.spotify.com.'); lsSet('stellar-sp-client', v); toast('Client ID saved. Now connect Spotify.'); });
+$('#spCopyRedirect').addEventListener('click', () => { const t = spRedirect(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Redirect URI copied.')).catch(() => toast(t)); });
+$('#spLogin').addEventListener('click', spLogin);
+$('#spLogout').addEventListener('click', spDisconnect);
+$('#spGo').addEventListener('click', () => spImport($('#spLink').value));
+$('#spLink').addEventListener('keydown', e => { if (e.key === 'Enter') spImport($('#spLink').value); });
+document.addEventListener('paste', e => { if (/^(TEXTAREA|INPUT)$/.test(e.target.tagName)) return; const t = (e.clipboardData || {}).getData ? e.clipboardData.getData('text') : ''; if (spParseLink(t)) { e.preventDefault(); spImport(t); } });
+
 // ---------- tracks ----------
 async function selectTrack(i, autoplay) {
   if (i < 0 || i >= tracks.length) return;
   setSyncPill(''); $('#qResults').innerHTML = '';
-  stopAll(); cur = i; const tr = tracks[i]; setLvTint(tr); buffer = null; lines = []; curIdx = -2; lastBeatT = -1; intervals = [];
+  stopAll(); cur = i; const tr = tracks[i]; playing = false; setLvTint(tr); buffer = null; lines = []; curIdx = -2; lastBeatT = -1; intervals = [];
   lyricsText.value = tr.lrc || ''; updateUI(); paintTracks();
+  if (tr.sp) { playing = spState.uri === tr.sp.uri && !spState.paused; lines = parseLyrics(tr.lrc || '', dur()); updateUI(); paintTracks(); if (autoplay) play(); afterLoad(tr, i); return; }
   if (!tr.buffer) { tr.loading = true; updateUI();
     try { tr.buffer = tr.spec ? await renderDemo(tr.spec) : tr.url ? await ensureAC().decodeAudioData(await (async () => { const r = await fetch(tr.url); if (!r.ok) throw new Error('missing'); return r.arrayBuffer(); })()) : await ensureAC().decodeAudioData(await tr.file.arrayBuffer()); }
     catch { tr.loading = false; if (tr.url) { tracks.splice(i, 1); paintTracks(); if (tracks.length) selectTrack(Math.min(i, tracks.length - 1), autoplay); else { cur = -1; updateUI(); } return; } updateUI(); toast(`${tr.name} could not be played. Try an MP3, M4A, WAV or OGG file.`); return; }
@@ -1119,7 +1319,7 @@ function paintTracks() {
     const n = document.createElement('div'); n.className = 'n'; const title = document.createElement('b'); title.textContent = (i === cur && playing ? '▶ ' : '') + t.name; const sm = document.createElement('small');
     const ln = parseLyrics(t.lrc || '', 0).filter(l => l.text).length; sm.textContent = (t.artist ? t.artist + ' · ' : '') + (ln ? `${ln} lyric lines` : 'no lyrics yet'); n.append(title, sm);
     const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'Remove'; rm.setAttribute('aria-label', `Remove ${t.name}`);
-    rm.addEventListener('click', e => { e.stopPropagation(); tracks.splice(i, 1); if (i === cur) { stopAll(); buffer = null; lines = []; cur = Math.min(cur, tracks.length - 1); if (cur >= 0) selectTrack(cur, false); else { cur = -1; updateUI(); } } else if (i < cur) cur--; paintTracks(); });
+    rm.addEventListener('click', e => { e.stopPropagation(); tracks.splice(i, 1); spSaveLib(); if (i === cur) { stopAll(); buffer = null; lines = []; cur = Math.min(cur, tracks.length - 1); if (cur >= 0) selectTrack(cur, false); else { cur = -1; updateUI(); } } else if (i < cur) cur--; paintTracks(); });
     b.append(n, rm); b.addEventListener('click', () => selectTrack(i, true)); el.appendChild(b); });
 }
 
@@ -1169,7 +1369,7 @@ $('#lrcBtn').addEventListener('click', () => $('#lrcFile').click()); $('#lrcFile
 let syncList = [], syncI = 0, syncW = 0, syncStamps = [], syncWords = false;
 const stamp = t => `[${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(2).padStart(5, '0')}]`, wstamp = t => stamp(t).replace('[', '<').replace(']', '>');
 function startSync(words) { syncList = lyricsText.value.split(/\r?\n/).map(l => l.replace(/\[[^\]]*\]|<[^>]*>/g, '').trim()).filter(Boolean);
-  if (!buffer) return toast('Load a song first.'); if (!syncList.length) return toast('Paste the lyrics first, one line per row.');
+  if (!buffer && !(tracks[cur] && tracks[cur].sp)) return toast('Load a song first.'); if (!syncList.length) return toast('Paste the lyrics first, one line per row.');
   syncWords = words; sheet.hidden = true; syncI = 0; syncW = 0; syncStamps = []; lines = []; $('#sync').hidden = false; $('#syncTap').textContent = words ? 'Tap when this word is sung' : 'Tap when this line starts'; paintSyncNext(); seek(0); play(); }
 function paintSyncNext() { const line = syncList[syncI]; if (!syncWords) { $('#syncNext').textContent = line; return; } const ws = line.split(/\s+/); $('#syncNext').innerHTML = ''; ws.forEach((w, i) => { const s = document.createElement('span'); s.textContent = w + ' '; s.style.opacity = i < syncW ? 0.4 : 1; if (i === syncW) s.style.color = 'var(--accent)'; $('#syncNext').appendChild(s); }); }
 $('#tapSync').addEventListener('click', () => startSync(false)); $('#tapSyncWords').addEventListener('click', () => startSync(true));
@@ -1188,6 +1388,7 @@ function chips(el, items, get, set) { el.innerHTML = ''; for (const [id, label] 
   return () => { for (const b of el.children) b.setAttribute('aria-pressed', String(b.dataset.id === String(get()))); }; }
 const painters = [
   chips($('#viewChips'), [['list', 'Lyrics'], ['sky', 'Sky']], () => S.view, v => { S.view = v; }),
+  chips($('#followChips'), [['on', 'Add them to my library'], ['off', 'Only follow my list']], () => S.spFollowAll ? 'on' : 'off', v => { S.spFollowAll = v === 'on'; }),
   chips($('#styleChips'), STYLES, () => S.style, v => { S.style = v; if (v !== 'auto') curStyle = v; }),
   chips($('#vizChips'), VIZ, () => S.viz, v => S.viz = v),
   chips($('#qualChips'), [['cine', 'Cinematic'], ['lite', 'Lite']], () => S.quality, v => S.quality = v),
@@ -1202,7 +1403,8 @@ function paintControls() {
   $('#engChip').setAttribute('aria-pressed', String(!!S.roman)); for (const p of painters) p(); for (const b of fxEl.children) b.setAttribute('aria-pressed', String(!!S[b.dataset.key])); for (const b of swEl.children) b.setAttribute('aria-pressed', String(b.dataset.id === S.scene)); }
 paintControls();
 if (document.fonts) { for (const f of ['40px "Space Grotesk"', '40px "Noto Sans Telugu"', '40px "Inter"']) document.fonts.load(f).then(() => { fontGen++; layoutCache.clear(); }).catch(() => {}); document.fonts.ready.then(() => { fontGen++; layoutCache.clear(); }); }
-resize(); addDemos(); selectTrack(0, false); updateUI();
+resize(); spRestoreLib(); addDemos(); selectTrack(0, false); updateUI(); paintSpotify();
+spHandleRedirect().then(() => { if (spAuth && !spUser) spAfterLogin(); });
 requestAnimationFrame(frame);
 })();
 </script>

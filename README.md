@@ -22,6 +22,22 @@ python3 -m http.server 8000
 
 then open `http://localhost:8000/app/musical-stage.html`.
 
+## Spotify playlists
+
+Paste a Spotify playlist, album or song link (Playlist -> *Add from Spotify*, or just paste anywhere on the page). Stellar reads the song list through Spotify's official Web API, shows the album covers, and loads each song's synced lyrics from LRCLIB, matched to the exact Spotify release by length.
+
+- **Spotify Premium**: songs play inside the Stellar page (Spotify Web Playback SDK).
+- **Free or Premium**: play on your phone or the Spotify app; Stellar follows whatever Spotify is playing, switches songs with it and keeps the lyrics in time. Songs you play that aren't in your list are added automatically (Settings -> *Songs played in Spotify*).
+- Spotify's audio can't be read by other apps, so the beat-reactive visuals and audio auto-sync apply to your own files only. `[` and `]` still nudge the lyrics.
+
+**One-time setup (2 minutes)**
+1. Open [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard), log in with your Spotify account, choose **Create app**.
+2. Under **Redirect URIs** add exactly `https://darkprime2324-dev.github.io/Musical-/app/musical-stage.html`.
+3. Tick **Web API** and **Web Playback SDK**, save, and copy the **Client ID**.
+4. In Stellar: Settings -> Spotify -> *One-time setup* -> paste the Client ID -> Save -> **Connect Spotify**.
+
+Notes: the login uses PKCE, so there is no secret in the page. A new Spotify app runs in development mode, which only lets the accounts you add under *User Management* (yours is there already) log in. Spotify blocks apps from reading its own editorial and algorithmic playlists (Top 50, Discover Weekly...); copy those songs into a playlist of your own and use that link. Spotify login does not work inside the claude.ai preview; use the GitHub Pages site.
+
 ## Lyrics library and perfect sync
 
 Stellar never ships lyrics with the app. It gets them, per song, from **[LRCLIB](https://lrclib.net)**, a free and open database of time-synced lyrics that covers Telugu, Hindi, English and many other languages, and then fits them to your exact recording.
