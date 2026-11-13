@@ -330,7 +330,8 @@ function parseLyrics(text, duration) {
   out.forEach((l, i) => { l.end = i + 1 < out.length ? out[i + 1].t : (duration || l.t + 4); if (l.words) l.words[l.words.length - 1].end = Math.min(l.words[l.words.length - 1].end, l.end); });
   return out;
 }
-function lineAt(t) { let idx = -1; for (let i = 0; i < lines.length; i++) { if (lines[i].t <= t + 0.04) idx = i; else break; } return idx; }
+const LEAD = 0.25; // show each line a touch before it is sung, as karaoke players do
+function lineAt(t) { let idx = -1; for (let i = 0; i < lines.length; i++) { if (lines[i].t <= t + LEAD) idx = i; else break; } return idx; }
 
 // ---------- canvas, layout, sky ----------
 const canvas = $('#stage'), g = canvas.getContext('2d');
