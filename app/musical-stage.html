@@ -1257,8 +1257,10 @@ function spRestoreLib() { try { const l = JSON.parse(lsGet('stellar-sp-lib') || 
 async function spImport(link) {
   const ref = spParseLink(link);
   if (!ref) return toast('That does not look like a Spotify playlist, album or song link.');
+  const status = $('#spStatus');
+  if (ref.kind === 'playlist' && /^37i9dQZ/.test(ref.id)) { spMixHelp(status); return; }
   if (!spAuth) { lsSet('stellar-sp-pending', link); return spLogin(); }
-  const status = $('#spStatus'); status.textContent = 'Reading from Spotify...';
+  status.textContent = 'Reading from Spotify...';
   let items = [], title = '';
   try {
     if (ref.kind === 'track') { const t = await spApi('/tracks/' + ref.id); items = [t]; title = t.name; }
@@ -1272,7 +1274,7 @@ async function spImport(link) {
     }
   } catch (e) {
     status.textContent = '';
-    if (e.status === 404) return toast('Spotify could not open that list. Spotify-made playlists (Top 50, Discover Weekly and similar) are blocked for apps; copy the songs into your own playlist and use that link.');
+    if (e.status === 404) { spMixHelp(status, true); return; }
     return toast('Spotify: ' + e.message);
   }
   const fresh = []; for (const t of items) if (!tracks.some(x => x.sp && x.sp.uri === t.uri) && !fresh.some(x => x.sp.uri === t.uri)) fresh.push(spMakeTrack(t));
@@ -1280,6 +1282,15 @@ async function spImport(link) {
   spSaveLib(); paintTracks(); status.textContent = ''; sheet.hidden = true;
   toast(`${title}: ${added} song${added === 1 ? '' : 's'} added from Spotify. Lyrics load as each song plays.`);
   if (added) selectTrack(first, false);
+}
+function spMixHelp(el, unknown) {
+  el.innerHTML = '';
+  const h = document.createElement('b'); h.textContent = unknown ? 'Spotify would not share this list.' : 'This is a Spotify-made mix (Daily Mix, Discover Weekly, Top 50, This Is...).';
+  const p = document.createElement('span'); p.textContent = ' Spotify does not let apps read these lists. Two easy ways:';
+  const ol = document.createElement('ol'); ol.style.cssText = 'margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px';
+  for (const t of ['Just play it in your Spotify app. Stellar follows along and adds each song with its lyrics as it comes on' + (spAuth ? '.' : ' (connect Spotify in Settings first).'),
+    'Or make it yours: in Spotify desktop open the mix, click a song, press Ctrl+A, right-click, Add to playlist, New playlist. Then paste that new playlist\'s link here.']) { const li = document.createElement('li'); li.textContent = t; ol.appendChild(li); }
+  el.append(h, p, ol); if (!S.spFollowAll) { S.spFollowAll = true; save(); paintControls(); }
 }
 function paintSpotify() {
   const st = $('#spConn'); if (!st) return;
