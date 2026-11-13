@@ -128,9 +128,12 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
       <textarea id="lyricsText" spellcheck="false" aria-label="Lyrics text"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="btn primary" id="applyLyrics" type="button">Apply lyrics</button>
-        <button class="btn" id="tapSync" type="button">Sync by tapping</button>
+        <button class="btn" id="tapSync" type="button">Sync lines by tapping</button>
+        <button class="btn" id="tapSyncWords" type="button">Sync every word</button>
         <button class="btn" id="lrcBtn" type="button">Open .lrc file</button>
+        <button class="btn" id="copyLrc" type="button">Copy timed lyrics</button>
       </div>
+      <p class="hint" style="margin-top:10px">While a song plays, <code>[</code> and <code>]</code> shift all lyrics 0.1 s earlier or later, <code>{</code> and <code>}</code> by a full second. The shift is saved as an <code>[offset:]</code> line.</p>
       <input type="file" id="lrcFile" accept=".lrc,.txt,text/plain" hidden>
     </div>
     <div id="panPlaylist" hidden>
@@ -312,14 +315,15 @@ async function renderDemo(sp) {
 // ---------- lyrics parsing ----------
 function parseLyrics(text, duration) {
   const out = [], plain = [], re = /\[(\d+):(\d+(?:\.\d+)?)\]/g, wre = /<(\d+):(\d+(?:\.\d+)?)>\s*([^<]*)/g;
+  const om = text.match(/\[offset:\s*([+-]?\d+)\s*\]/i), off = om ? +om[1] / 1000 : 0;
   for (const raw of text.split(/\r?\n/)) {
     const stamps = [...raw.matchAll(re)]; let body = raw.replace(re, '').trim();
     if (!stamps.length) { if (body && !/^\[[a-z]+:.*\]$/i.test(body)) plain.push(body); continue; }
     let words = null;
     if (/<\d+:\d/.test(body)) { const units = [...body.matchAll(wre)].map(m => ({t: +m[1] * 60 + +m[2], text: m[3].trim()})).filter(u => u.text);
-      if (units.length) { words = []; units.forEach((u, i) => { const end = i + 1 < units.length ? units[i + 1].t : u.t + 0.6, ws = u.text.split(/\s+/); ws.forEach((w, j) => words.push({t: u.t + (end - u.t) * j / ws.length, end: u.t + (end - u.t) * (j + 1) / ws.length, text: w})); }); body = words.map(w => w.text).join(' '); }
+      if (units.length) { words = []; units.forEach((u, i) => { const end = i + 1 < units.length ? units[i + 1].t : u.t + 0.6, ws = u.text.split(/\s+/); ws.forEach((w, j) => words.push({t: u.t + (end - u.t) * j / ws.length - off, end: u.t + (end - u.t) * (j + 1) / ws.length - off, text: w})); }); body = words.map(w => w.text).join(' '); }
       else body = body.replace(/<[^>]*>/g, '').trim(); }
-    for (const m of stamps) out.push({t: +m[1] * 60 + +m[2], text: body, words});
+    for (const m of stamps) out.push({t: +m[1] * 60 + +m[2] - off, text: body, words});
   }
   if (!out.length && plain.length) { const d = duration || plain.length * 4, a = d * 0.04, span = d * 0.9; plain.forEach((w, i) => out.push({t: a + span * i / plain.length, text: w, words: null})); }
   out.sort((x, y) => x.t - y.t);
@@ -757,7 +761,16 @@ $('#nextBtn').addEventListener('click', () => { if (cur + 1 < tracks.length) sel
 seekEl.addEventListener('pointerdown', () => dragging = true); seekEl.addEventListener('change', () => { dragging = false; seek(+seekEl.value); }); seekEl.addEventListener('input', () => { if (!playing) seek(+seekEl.value); });
 document.addEventListener('keydown', e => { if (/^(TEXTAREA|INPUT)$/.test(e.target.tagName)) return;
   if (e.code === 'Space') { e.preventDefault(); togglePlay(); } else if (e.key === 'ArrowRight') seek(now() + 5); else if (e.key === 'ArrowLeft') seek(now() - 5);
-  else if (e.key === 'n') $('#nextBtn').click(); else if (e.key === 'p') $('#prevBtn').click(); else if (e.key === 'f') toggleFS(); else if (e.key === 'l') { paintTracks(); openSheet('Playlist'); } else if (e.key === 'Escape') sheet.hidden = true; });
+  else if (e.key === 'n') $('#nextBtn').click(); else if (e.key === 'p') $('#prevBtn').click(); else if (e.key === 'f') toggleFS(); else if (e.key === 'l') { paintTracks(); openSheet('Playlist'); } else if (e.key === 'Escape') sheet.hidden = true;
+  else if (e.key === '[' || e.key === ']' || e.key === '{' || e.key === '}') nudge((e.key === '[' || e.key === '{' ? -1 : 1) * (e.shiftKey || e.key === '{' || e.key === '}' ? 1000 : 100)); });
+// Shift every timestamp: positive ms makes the lyrics appear later. Stored as an [offset:] tag in the LRC text, so it survives copying the lyrics out.
+function nudge(ms) {
+  const tr = tracks[cur]; if (!tr || !lines.length) return;
+  const om = (tr.lrc || '').match(/\[offset:\s*([+-]?\d+)\s*\]/i), cur0 = om ? +om[1] : 0, next = cur0 - ms;
+  tr.lrc = om ? tr.lrc.replace(om[0], `[offset:${next}]`) : `[offset:${next}]\n` + (tr.lrc || '');
+  lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); curIdx = -2;
+  const d = -next / 1000; toast(d === 0 ? 'Lyrics back on their original timing' : `Lyrics ${Math.abs(d).toFixed(1)} s ${d > 0 ? 'later' : 'earlier'}  ([ and ] nudge by 0.1 s, { and } by 1 s)`);
+}
 function toggleFS() { const w = $('#stageWrap'); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else if (w.requestFullscreen) w.requestFullscreen().catch(() => toast('Full screen is not available here.')); else toast('Full screen is not available here.'); }
 $('#fsBtn').addEventListener('click', toggleFS); $('#fsExit').addEventListener('click', toggleFS);
 function openSheet(which) { for (const p of ['Lyrics', 'Playlist', 'Settings']) $('#pan' + p).hidden = p !== which; $('#sheetTitle').firstChild.textContent = which + ' '; sheet.hidden = false; if (which === 'Lyrics') lyricsText.focus(); }
@@ -769,13 +782,23 @@ $('#songFile').addEventListener('change', e => { const files = [...e.target.file
 $('#demoBtn').addEventListener('click', () => { const n = tracks.length; addDemos(); if (cur < 0 && tracks.length) selectTrack(0, false); toast(tracks.length > n ? 'Demo songs added' : 'The demo songs are already in the playlist'); });
 $('#applyLyrics').addEventListener('click', () => { const tr = tracks[cur]; if (!tr) return toast('Add a song first.'); tr.lrc = lyricsText.value; lines = parseLyrics(tr.lrc, dur()); curIdx = -2; sheet.hidden = true; toast(lines.length ? `Lyrics applied: ${lines.filter(l => l.text).length} lines` : 'No lyrics found. Paste some lines first.'); });
 $('#lrcBtn').addEventListener('click', () => $('#lrcFile').click()); $('#lrcFile').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (f) lyricsText.value = await f.text(); });
-let syncList = [], syncI = 0, syncStamps = [];
-const stamp = t => `[${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(2).padStart(5, '0')}]`;
-$('#tapSync').addEventListener('click', () => { syncList = lyricsText.value.split(/\r?\n/).map(l => l.replace(/\[[^\]]*\]|<[^>]*>/g, '').trim()).filter(Boolean);
-  if (!buffer) return toast('Load a song first.'); if (!syncList.length) return toast('Paste the lyrics first, one line per row.'); sheet.hidden = true; syncI = 0; syncStamps = []; lines = []; $('#sync').hidden = false; $('#syncNext').textContent = syncList[0]; seek(0); play(); });
-$('#syncTap').addEventListener('click', () => { if (syncI >= syncList.length) return; syncStamps.push({t: now(), text: syncList[syncI]}); lines = parseLyrics(syncStamps.map(l => stamp(l.t) + l.text).join('\n'), dur()); syncI++; if (syncI >= syncList.length) syncEnd(); else $('#syncNext').textContent = syncList[syncI]; });
+let syncList = [], syncI = 0, syncW = 0, syncStamps = [], syncWords = false;
+const stamp = t => `[${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(2).padStart(5, '0')}]`, wstamp = t => stamp(t).replace('[', '<').replace(']', '>');
+function startSync(words) { syncList = lyricsText.value.split(/\r?\n/).map(l => l.replace(/\[[^\]]*\]|<[^>]*>/g, '').trim()).filter(Boolean);
+  if (!buffer) return toast('Load a song first.'); if (!syncList.length) return toast('Paste the lyrics first, one line per row.');
+  syncWords = words; sheet.hidden = true; syncI = 0; syncW = 0; syncStamps = []; lines = []; $('#sync').hidden = false; $('#syncTap').textContent = words ? 'Tap when this word is sung' : 'Tap when this line starts'; paintSyncNext(); seek(0); play(); }
+function paintSyncNext() { const line = syncList[syncI]; if (!syncWords) { $('#syncNext').textContent = line; return; } const ws = line.split(/\s+/); $('#syncNext').innerHTML = ''; ws.forEach((w, i) => { const s = document.createElement('span'); s.textContent = w + ' '; s.style.opacity = i < syncW ? 0.4 : 1; if (i === syncW) s.style.color = 'var(--accent)'; $('#syncNext').appendChild(s); }); }
+$('#tapSync').addEventListener('click', () => startSync(false)); $('#tapSyncWords').addEventListener('click', () => startSync(true));
+$('#syncTap').addEventListener('click', () => { if (syncI >= syncList.length) return; const t = now();
+  if (!syncWords) { syncStamps.push({t, text: syncList[syncI]}); syncI++; }
+  else { const ws = syncList[syncI].split(/\s+/); if (syncW === 0) syncStamps.push({t, text: syncList[syncI], words: []}); syncStamps[syncStamps.length - 1].words.push({t, text: ws[syncW]}); syncW++; if (syncW >= ws.length) { syncI++; syncW = 0; } }
+  lines = parseLyrics(syncText(), dur()); if (syncI >= syncList.length) syncEnd(); else paintSyncNext(); });
 $('#syncDone').addEventListener('click', syncEnd);
-function syncEnd() { if ($('#sync').hidden) return; $('#sync').hidden = true; if (!syncStamps.length) return; const tr = tracks[cur]; tr.lrc = syncStamps.map(l => stamp(l.t) + l.text).join('\n'); lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); toast(`Synced ${syncStamps.length} lines. Open Lyrics to see or copy the timed version.`); }
+function syncText() { return syncStamps.map(l => stamp(l.t) + (l.words ? l.words.map(w => wstamp(w.t) + w.text).join(' ') : l.text)).join('\n'); }
+function syncEnd() { if ($('#sync').hidden) return; $('#sync').hidden = true; if (!syncStamps.length) return; const tr = tracks[cur]; tr.lrc = syncText(); lyricsText.value = tr.lrc; lines = parseLyrics(tr.lrc, dur()); toast(`Synced ${syncStamps.length} lines${syncWords ? ' word by word' : ''}. Open Lyrics to copy the timed version.`); }
+$('#copyLrc').addEventListener('click', () => { const txt = lyricsText.value; if (!txt.trim()) return toast('Nothing to copy yet.');
+  const done = () => toast('Timed lyrics copied. Save them as a .lrc file next to the song.');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => { lyricsText.select(); toast('Press Ctrl+C or Cmd+C to copy the selected lyrics.'); }); else { lyricsText.select(); toast('Press Ctrl+C or Cmd+C to copy the selected lyrics.'); } });
 
 function chips(el, items, get, set) { el.innerHTML = ''; for (const [id, label] of items) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.id = id; b.addEventListener('click', () => { set(id); save(); paintControls(); }); el.appendChild(b); }
   return () => { for (const b of el.children) b.setAttribute('aria-pressed', String(b.dataset.id === String(get()))); }; }
