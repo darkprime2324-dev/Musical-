@@ -626,10 +626,20 @@ function comet(L, p, age, P, idx, K, line, t, span) {
 }
 function supernova(L, p, age, P, idx, K) {
   const {x, y} = LY.lyr, cx = (L.box.x0 + L.box.x1) / 2, cy = (L.box.y0 + L.box.y1) / 2;
-  if (age < 0.9 && !RM) { const k = age / 0.9; g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = P.accent; g.globalAlpha = (1 - k) * 0.8; g.lineWidth = 1;
-    for (let i = 0; i < 24; i++) { const a = i / 24 * TAU + hash(idx + i) * 0.2, r0 = k * Math.max(W, H) * 0.5, r1 = r0 + 40 + 60 * hash(i * 3 + idx); g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.stroke(); }
-    const fl = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.4 * k + 10); fl.addColorStop(0, '#ffffff' + (k < 0.2 ? 'aa' : '00')); fl.addColorStop(0.3, P.accent + '33'); fl.addColorStop(1, P.accent + '00'); g.fillStyle = fl; g.globalAlpha = 1 - k; circle(cx, cy, Math.max(W, H)); g.restore(); }
-  for (const ch of L.chars) { const a = clamp((age - ch.i * 0.012) / 0.6, 0, 1); if (a <= 0) continue; const e = easeOutBack(a), px = cx + (ch.cx - cx) * e, py = cy + (ch.y - cy) * e, sung = K(ch) > 0.5;
+  const D = 1.6, big = Math.max(W, H);
+  if (age < D && !RM) { const k = age / D, ek = easeOutCubic(k); g.save(); g.globalCompositeOperation = 'lighter';
+    if (age < 0.12) { g.fillStyle = '#ffffff'; g.globalAlpha = 0.85 * (1 - age / 0.12); g.fillRect(0, 0, W, H); }
+    const core = g.createRadialGradient(cx, cy, 0, cx, cy, big * (0.08 + 0.5 * ek)); core.addColorStop(0, '#ffffff'); core.addColorStop(0.15, P.accent); core.addColorStop(0.45, P.accent2 + '66'); core.addColorStop(1, P.accent + '00');
+    g.fillStyle = core; g.globalAlpha = Math.pow(1 - k, 1.4); circle(cx, cy, big);
+    g.strokeStyle = P.accent2; g.lineWidth = 2.5; g.globalAlpha = (1 - k) * 0.9; g.beginPath(); g.arc(cx, cy, big * 0.75 * ek + 10, 0, TAU); g.stroke();
+    g.lineWidth = 1; g.globalAlpha = (1 - k) * 0.5; g.beginPath(); g.arc(cx, cy, big * 0.75 * ek * 0.7 + 6, 0, TAU); g.stroke();
+    g.lineCap = 'round';
+    for (let i = 0; i < 36; i++) { const a = i / 36 * TAU + hash(idx + i) * 0.17, len = (0.25 + 0.75 * hash(i * 3 + idx)) * big * 0.55, r0 = ek * len * 0.55, r1 = r0 + len * 0.45 * (1 - 0.6 * k);
+      const gr = g.createLinearGradient(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); gr.addColorStop(0, (i % 3 ? P.accent : '#ffffff') + 'ff'); gr.addColorStop(1, P.accent2 + '00');
+      g.strokeStyle = gr; g.lineWidth = i % 3 ? 2 : 4; g.globalAlpha = (1 - k) * (0.7 + 0.3 * hash(i * 7)); g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.stroke(); }
+    g.restore();
+    if (age < 0.25 && fxParts.length < 160) for (let i = 0; i < 6; i++) { const a = Math.random() * TAU, sp = 250 + Math.random() * 500; fxParts.push({x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.9 + Math.random() * 0.6, s: 1.5 + Math.random() * 2.5, col: Math.random() < 0.5 ? '#ffffff' : P.accent}); } }
+  for (const ch of L.chars) { const a = clamp((age - 0.1 - ch.i * 0.014) / 0.7, 0, 1); if (a <= 0) continue; const e = easeOutBack(a), px = cx + (ch.cx - cx) * e, py = cy + (ch.y - cy) * e, sung = K(ch) > 0.5;
     g.globalAlpha = a; if (sung) { g.shadowColor = P.accent; g.shadowBlur = L.size * 0.35; } glyph(ch, px, py, 0.4 + 0.6 * e, (1 - e) * (hash(ch.i + idx) - 0.5) * 3, sung ? '#fff' : P.lyr, null, 0); g.shadowBlur = 0; }
   g.globalAlpha = 1;
 }
