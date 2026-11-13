@@ -52,17 +52,21 @@ body{height:100%;background:var(--ink);color:var(--fg);font-family:var(--ui);ove
 .st .a{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st .d{flex:none;font:12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
 @media (max-width:900px){.side{display:none}}
-.lv{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;background:var(--lvbg,rgba(10,8,20,.72));-webkit-mask-image:linear-gradient(transparent,#000 10%,#000 84%,transparent);mask-image:linear-gradient(transparent,#000 10%,#000 84%,transparent);transition:background .8s}
+.lv{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;background:var(--lvbg,rgba(10,8,20,.42));-webkit-mask-image:linear-gradient(transparent,#000 10%,#000 84%,transparent);mask-image:linear-gradient(transparent,#000 10%,#000 84%,transparent);transition:background .8s}
 .lv::-webkit-scrollbar{display:none}
 .lv-inner{max-width:980px;margin:0 auto;padding-block:30vh 46vh;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:flex-start;gap:20px}
 .lv-meta{font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:6px}
 .ln{appearance:none;border:0;background:none;text-align:left;cursor:pointer;font:700 clamp(24px,3.1vw,44px)/1.22 var(--display);color:rgba(255,255,255,.3);padding:0;transition:color .35s,transform .35s;transform-origin:left center;text-wrap:balance;max-width:100%}
 .ln:hover{color:rgba(255,255,255,.75)}
 .ln.past{color:rgba(255,255,255,.55)}
-.ln.now{color:#fff;transform:scale(1.03)}
-.ln .w{transition:color .18s,text-shadow .18s}
+.ln{text-shadow:0 2px 16px rgba(0,0,0,.55)}
+.ln.now{color:#fff;transform:scale(1.03);animation:lnIn .55s cubic-bezier(.2,.8,.2,1) both}
+@keyframes lnIn{from{opacity:.35;transform:translateY(18px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1.03)}}
+@keyframes wPop{0%{transform:none}35%{transform:translateY(-7px) scale(1.18)}100%{transform:none}}
+.ln .w{display:inline-block;transition:color .18s,text-shadow .18s}
 .ln.now .w{color:rgba(255,255,255,.5)}
-.ln.now .w.on{color:#fff;text-shadow:0 0 22px var(--accent)}
+.ln.now .w.on{color:#fff;text-shadow:0 0 22px var(--accent);animation:wPop .42s ease-out}
+@media (prefers-reduced-motion: reduce){.ln.now,.ln.now .w.on{animation:none}}
 .ln.gap{font-size:30px;letter-spacing:.3em}
 .ln:focus-visible{outline:2px solid var(--cool);outline-offset:6px;border-radius:6px}
 .lv-empty{display:flex;flex-direction:column;align-items:flex-start;gap:14px;font:700 clamp(22px,2.6vw,34px)/1.3 var(--display);color:rgba(255,255,255,.75)}
@@ -649,8 +653,8 @@ function drawLyrics(P) {
     else { g.globalAlpha = o * 0.8; for (const ch of L.chars) glyph(ch, ch.cx, ch.y - a * L.size * 1.2, 1, 0, P.lyr, null, 0); }
     g.globalAlpha = 1; } }
   const tr = tracks[cur];
-  if (!buffer) return titleCard(P, tr ? tr.name : 'Stellar', tr && tr.loading ? 'Loading...' : 'Add a song from the playlist');
-  if (idx < 0) return titleCard(P, tr.name, !lines.length ? 'Open the lyrics panel to add the words' : (playing ? 'Lyrics start soon' : 'Press play'));
+  if (!buffer && !(tr && tr.sp)) return titleCard(P, tr ? titleOf(tr) : 'Stellar', tr && tr.loading ? 'Loading...' : 'Add a song from the playlist');
+  if (idx < 0) return titleCard(P, titleOf(tr), !lines.length ? 'Open the lyrics panel to add the words' : (playing ? 'Lyrics start soon' : 'Press play'));
   const line = lines[idx]; if (!line.text) return;
   const emph = /!$/.test(line.text), L = getLayout(line.text, emph), age = T - curStart;
   const span = Math.max(0.3, Math.min(line.end - line.t, 0.6 + line.text.length * 0.11) * 0.95), p = clamp((t - line.t) / span, 0, 1);
@@ -1077,11 +1081,11 @@ $('#engChip').addEventListener('click', () => { S.roman = !S.roman; save(); repa
 const lv = $('#lyricView'), lvInner = $('#lvInner'); let lvFor = null, lvState = '', lvUserScroll = 0, lvPlaying = null;
 for (const ev of ['wheel', 'touchmove']) lv.addEventListener(ev, () => { lvUserScroll = performance.now(); }, {passive: true});
 function setLvTint(t) {
-  if (!t) return; const hh = nameHue(titleOf(t)); lv.style.setProperty('--lvbg', `hsla(${hh},45%,13%,.74)`);
+  if (!t) return; const hh = nameHue(titleOf(t)); lv.style.setProperty('--lvbg', `hsla(${hh},45%,13%,.42)`);
   if (!t.cover) return;
   const img = new Image(); img.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 8, 8);
     const d = x.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, bb = 0; for (let k = 0; k < d.length; k += 4) { r += d[k]; gg += d[k + 1]; bb += d[k + 2]; }
-    const n = d.length / 4, f = 0.42; if (tracks[cur] === t) lv.style.setProperty('--lvbg', `rgba(${Math.round(r / n * f)},${Math.round(gg / n * f)},${Math.round(bb / n * f)},.8)`); } catch {} };
+    const n = d.length / 4, f = 0.42; if (tracks[cur] === t) lv.style.setProperty('--lvbg', `rgba(${Math.round(r / n * f)},${Math.round(gg / n * f)},${Math.round(bb / n * f)},.5)`); } catch {} };
   img.crossOrigin = 'anonymous'; img.src = t.cover;
 }
 function buildLyricView() {
@@ -1097,7 +1101,7 @@ function buildLyricView() {
   lines.forEach((l, i) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'ln' + (l.text ? '' : ' gap');
     if (!l.text) b.textContent = '♪ ♪ ♪';
-    else { const ws = l.text.split(/\s+/); ws.forEach((w, j) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w + (j < ws.length - 1 ? ' ' : ''); b.appendChild(s); }); }
+    else { const ws = l.text.split(/\s+/); ws.forEach((w, j) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w; if (j) b.appendChild(document.createTextNode(' ')); b.appendChild(s); }); }
     b.addEventListener('click', () => { lvUserScroll = 0; seek(Math.max(0, l.t - 0.05)); if (!playing) play(); });
     lvInner.appendChild(b);
   });
@@ -1106,21 +1110,44 @@ function buildLyricView() {
   cr.textContent = [src ? 'Lyrics from LRCLIB' : 'Your lyrics', synced ? synced[0].replace(/,.*$/, '') : '', S.roman ? 'shown in English letters' : ''].filter(Boolean).join('  ·  ');
   lvInner.appendChild(cr);
 }
-function tickLyricView() {
-  const on = S.view === 'list'; if (lv.hidden === on) { lv.hidden = !on; lvFor = null; } if (!on) return;
-  if (lvPlaying !== playing) { lvPlaying = playing; paintSide(); }
-  if (lvFor !== lines || (!lines.length && lvInner.dataset.k !== $('#syncPill').textContent + (tracks[cur] && tracks[cur].loading))) { lvInner.dataset.k = $('#syncPill').textContent + (tracks[cur] && tracks[cur].loading); buildLyricView(); }
-  if (!lines.length) return;
+function lyricState() {
+  if (!lines.length) return [-1, 0];
   const t = now(), idx = lineAt(t); let wOn = 0;
   if (idx >= 0 && lines[idx].text) { const l = lines[idx];
     if (l.words) wOn = l.words.filter(w => w.t <= t + LEAD).length;
     else { const span = Math.max(0.3, Math.min(l.end - l.t, 0.6 + l.text.length * 0.11) * 0.95); wOn = Math.ceil(clamp((t - l.t + LEAD) / span, 0, 1) * l.text.split(/\s+/).length); } }
+  return [idx, wOn];
+}
+let lpState = '';
+function lyricMoment(idx, wOn) {
+  const st = idx + ':' + wOn; if (st === lpState) return false;
+  const [pi, pw] = lpState ? lpState.split(':').map(Number) : [-9, 0]; lpState = st;
+  if (!playing || idx < 0 || RM) return false;
+  const noAudio = (tracks[cur] && tracks[cur].sp) || level < 8;
+  if (pi !== idx) { if (noAudio) onBeat(now(), 1, false); rings.push({r: 0, a: 0.9}); return true; }
+  if (wOn > pw && noAudio) onBeat(now(), 0.6, false);
+  return wOn > pw;
+}
+function wordSparks(el) {
+  if (RM || !el) return; const r = el.getBoundingClientRect(), c = canvas.getBoundingClientRect(), P = PAL();
+  const x = r.left - c.left + r.width / 2, y = r.top - c.top + r.height / 2;
+  for (let k = 0; k < (S.parts === 'high' ? 8 : 4) && fxParts.length < 220; k++) { const a = Math.random() * TAU, sp = 60 + Math.random() * 160;
+    fxParts.push({x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, life: 0, max: 0.6 + Math.random() * 0.5, s: 1.2 + Math.random() * 2, col: Math.random() < 0.5 ? '#ffffff' : P.accent}); }
+}
+function tickLyricView() {
+  const on = S.view === 'list'; if (lv.hidden === on) { lv.hidden = !on; lvFor = null; }
+  const [idx, wOn] = lyricState(), moved = lyricMoment(idx, wOn);
+  if (!on) return;
+  if (lvPlaying !== playing) { lvPlaying = playing; paintSide(); }
+  if (lvFor !== lines || (!lines.length && lvInner.dataset.k !== $('#syncPill').textContent + (tracks[cur] && tracks[cur].loading))) { lvInner.dataset.k = $('#syncPill').textContent + (tracks[cur] && tracks[cur].loading); buildLyricView(); }
+  if (!lines.length) return;
   const st = idx + ':' + wOn; if (st === lvState) return;
   const prevIdx = lvState ? +lvState.split(':')[0] : -9; lvState = st;
   const els = lvInner.querySelectorAll('.ln');
   els.forEach((el, i) => { el.classList.toggle('past', i < idx); el.classList.toggle('now', i === idx); });
   if (idx >= 0 && els[idx]) {
-    [...els[idx].children].forEach((s, j) => s.classList.toggle('on', j < wOn));
+    const ws = [...els[idx].children]; ws.forEach((s, j) => s.classList.toggle('on', j < wOn));
+    if (moved && playing && wOn > 0) wordSparks(ws[wOn - 1]);
     if (prevIdx !== idx && performance.now() - lvUserScroll > 3000) lv.scrollTo({top: Math.max(0, els[idx].offsetTop - lv.clientHeight * 0.36), behavior: RM ? 'auto' : 'smooth'});
   } else if (idx < 0 && prevIdx !== idx && performance.now() - lvUserScroll > 3000) lv.scrollTo({top: 0, behavior: 'auto'});
 }
