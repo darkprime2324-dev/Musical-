@@ -27,7 +27,7 @@ then open `http://localhost:8000/app/musical-stage.html`.
 Paste a Spotify playlist, album or song link (Playlist -> *Add from Spotify*, or just paste anywhere on the page). Stellar reads the song list through Spotify's official Web API, shows the album covers, and loads each song's synced lyrics from LRCLIB, matched to the exact Spotify release by length.
 
 - **Spotify Premium**: songs play inside the Stellar page (Spotify Web Playback SDK).
-- **Free or Premium**: play on your phone or the Spotify app; Stellar follows whatever Spotify is playing, switches songs with it and keeps the lyrics in time. Songs you play that aren't in your list are added automatically (Settings -> *Songs played in Spotify*).
+- **Any account**: play on your phone or the Spotify app; Stellar follows whatever Spotify is playing, switches songs with it and keeps the lyrics in time. Songs you play that aren't in your list are added automatically (Settings -> *Songs played in Spotify*).
 - Spotify's audio can't be read by other apps, so the beat-reactive visuals and audio auto-sync apply to your own files only. `[` and `]` still nudge the lyrics.
 
 **One-time setup (2 minutes)**
@@ -36,7 +36,11 @@ Paste a Spotify playlist, album or song link (Playlist -> *Add from Spotify*, or
 3. Tick **Web API** and **Web Playback SDK**, save, and copy the **Client ID**.
 4. In Stellar: Settings -> Spotify -> *One-time setup* -> paste the Client ID -> Save -> **Connect Spotify**.
 
-Notes: the login uses PKCE, so there is no secret in the page. A new Spotify app runs in development mode, which only lets the accounts you add under *User Management* (yours is there already) log in. Spotify blocks apps from reading its own editorial and algorithmic playlists (Top 50, Discover Weekly...); copy those songs into a playlist of your own and use that link. Spotify login does not work inside the claude.ai preview; use the GitHub Pages site.
+**Spotify's rules for apps (since February 2026)**
+- The person who created the Spotify app (step 1) needs **Spotify Premium**, or Spotify switches the app off. Up to 5 people can use it; add them under *User Management*.
+- Apps can only read **playlists you own or collaborate on**. After connecting, the Playlist panel lists them under *Your playlists*. For anyone else's playlist or a Spotify-made mix, either play it in Spotify and let Stellar follow, or save a copy (open it, Ctrl+A, right-click, Add to playlist, New playlist).
+- Playing inside the page needs Premium; otherwise control playback from your Spotify app and the lyrics follow.
+- The login uses PKCE, so there is no secret in the page. It does not work inside the claude.ai preview; use the GitHub Pages site.
 
 ## Lyrics library and perfect sync
 

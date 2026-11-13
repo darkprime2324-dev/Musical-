@@ -66,6 +66,8 @@ body{height:100%;background:var(--ink);color:var(--fg);font-family:var(--ui);ove
 .ln.gap{font-size:30px;letter-spacing:.3em}
 .ln:focus-visible{outline:2px solid var(--cool);outline-offset:6px;border-radius:6px}
 .lv-empty{display:flex;flex-direction:column;align-items:flex-start;gap:14px;font:700 clamp(22px,2.6vw,34px)/1.3 var(--display);color:rgba(255,255,255,.75)}
+.lv-sp{color:#1ed760;text-decoration:none}
+.lv-sp:hover{text-decoration:underline}
 .lv-credit{margin-top:36px;font:12px var(--ui);color:rgba(255,255,255,.45)}
 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;cursor:crosshair}
 .dock{background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;padding-block:10px}
@@ -201,6 +203,7 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
       <div class="find">
         <div class="findrow"><input id="spLink" type="text" placeholder="Paste a Spotify playlist, album or song link" aria-label="Spotify link"><button class="btn primary" id="spGo" type="button">Add from Spotify</button></div>
         <p class="hint" id="spStatus" aria-live="polite"></p>
+        <div class="tracks" id="spMine"></div>
       </div>
       <p class="hint">Songs play in order and move to the next one automatically. Open a whole folder at once: a <code>.lrc</code> file with the same name as a song is used as its lyrics, and songs without one look theirs up on LRCLIB. You can also drop files onto the sky.</p>
       <div class="tracks" id="trackList"></div>
@@ -1084,6 +1087,7 @@ function setLvTint(t) {
 function buildLyricView() {
   lvFor = lines; lvState = ''; lvInner.innerHTML = ''; const t = tracks[cur];
   const meta = document.createElement('div'); meta.className = 'lv-meta'; meta.textContent = t ? [titleOf(t), artistOf(t)].filter(Boolean).join('  ·  ') : ''; lvInner.appendChild(meta);
+  if (t && t.sp) { const a = document.createElement('a'); a.href = 'https://open.spotify.com/track/' + t.sp.uri.split(':').pop(); a.target = '_blank'; a.rel = 'noopener'; a.className = 'lv-sp'; a.textContent = 'Listen on Spotify'; meta.append('  ·  ', a); }
   if (!lines.length) {
     const e = document.createElement('div'); e.className = 'lv-empty';
     e.textContent = !t ? 'Add a song to get started.' : t.loading ? 'Loading the song...' : /Finding/.test($('#syncPill').textContent) ? 'Looking for lyrics...' : 'No lyrics for this song yet.';
@@ -1183,9 +1187,9 @@ async function spApi(path, opts = {}) {
 }
 function spDisconnect() { spAuth = null; spUser = null; lsSet('stellar-sp-auth', ''); if (spPlayer) { try { spPlayer.disconnect(); } catch {} spPlayer = null; spDevice = null; } paintSpotify(); toast('Disconnected from Spotify.'); }
 async function spAfterLogin() {
-  try { spUser = await spApi('/me'); } catch (e) { spUser = null; if (e.status === 403) toast('Spotify refused the login. Add your Spotify email under User Management in your Spotify app, then connect again.'); else toast('Spotify: ' + e.message); paintSpotify(); return; }
-  paintSpotify();
-  if (spUser.product === 'premium') spInitPlayer().catch(() => {});
+  try { spUser = await spApi('/me'); } catch (e) { spUser = null; if (e.status === 403) toast('Spotify refused the connection. Spotify developer apps now need the app owner to have Spotify Premium, and each person who uses it must be added under User Management (up to 5).'); else toast('Spotify: ' + e.message); paintSpotify(); return; }
+  paintSpotify(); spLoadMyPlaylists();
+  spInitPlayer().catch(() => { spPlayer = null; spDevice = null; paintSpotify(); });
 }
 function loadSdk() {
   return new Promise((res, rej) => { if (window.Spotify && window.Spotify.Player) return res(); window.onSpotifyWebPlaybackSDKReady = res;
@@ -1206,7 +1210,7 @@ function spNow() {
   const t = spTrack(); if (!t || spState.uri !== t.sp.uri) return 0;
   return Math.min(t.sp.durationMs / 1000, spState.pos + (spState.paused ? 0 : (performance.now() - spState.at) / 1000));
 }
-function spFollowHint() { if (spFollowNoted) return; spFollowNoted = true; toast('Start this song in your Spotify app (phone or desktop). The lyrics here follow whatever Spotify is playing.'); }
+function spFollowHint() { if (spFollowNoted) return; spFollowNoted = true; toast('Play, pause and skip in your Spotify app (phone or desktop). The lyrics here follow whatever Spotify is playing. Playing inside this page needs Spotify Premium.'); }
 async function spPlay() {
   const t = spTrack(); if (!t) return;
   if (!spAuth) { lsSet('stellar-sp-pending', ''); return spLogin(); }
@@ -1215,18 +1219,18 @@ async function spPlay() {
     if (spDevice) {
       if (same && spPlayer) { await spPlayer.resume(); return; }
       await spApi('/me/player/play?device_id=' + encodeURIComponent(spDevice), {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({uris: upNext, position_ms: 0})});
-    } else if (spUser && spUser.product === 'premium') {
+    } else {
       await spApi('/me/player/play', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(same ? {} : {uris: upNext, position_ms: 0})});
-    } else spFollowHint();
+    }
   } catch (e) { if (e.status === 404) toast('Open Spotify on any device first, then press play again.'); else if (e.status === 403) spFollowHint(); else toast('Spotify: ' + e.message); }
 }
 async function spPause() {
   if (spSwitching || !spTrack() || !spAuth) return;
-  try { if (spPlayer && spDevice) await spPlayer.pause(); else if (spUser && spUser.product === 'premium') await spApi('/me/player/pause', {method: 'PUT'}); } catch {}
+  try { if (spPlayer && spDevice) await spPlayer.pause(); else await spApi('/me/player/pause', {method: 'PUT'}); } catch (e) { if (!spSwitching && (e.status === 403 || e.status === 404)) spFollowHint(); }
 }
 async function spSeek(sec) {
   if (!spTrack() || !spAuth) return; const ms = Math.max(0, Math.round(sec * 1000));
-  try { if (spPlayer && spDevice) await spPlayer.seek(ms); else if (spUser && spUser.product === 'premium') await spApi('/me/player/seek?position_ms=' + ms, {method: 'PUT'}); else return spFollowHint(); spState.pos = ms / 1000; spState.at = performance.now(); } catch {}
+  try { if (spPlayer && spDevice) await spPlayer.seek(ms); else await spApi('/me/player/seek?position_ms=' + ms, {method: 'PUT'}); spState.pos = ms / 1000; spState.at = performance.now(); } catch (e) { if (e.status === 403 || e.status === 404) spFollowHint(); }
 }
 // Follow mode: whatever Spotify plays (on this page or any device) becomes the current song here, with its lyrics.
 function spFollow(uri) {
@@ -1268,12 +1272,13 @@ async function spImport(link) {
       const a = await spApi('/albums/' + ref.id); title = a.name; let page = a.tracks;
       while (page) { items.push(...page.items.map(t => ({...t, album: {name: a.name, images: a.images}}))); page = page.next ? await spApi(page.next) : null; }
     } else {
-      const meta = await spApi('/playlists/' + ref.id + '?fields=name'); title = meta.name;
-      let page = await spApi('/playlists/' + ref.id + '/tracks?limit=100&additional_types=track&fields=next,items(track(name,uri,type,is_local,duration_ms,artists(name),album(name,images)))');
-      while (page) { items.push(...page.items.map(x => x.track).filter(t => t && t.type === 'track' && !t.is_local && t.uri)); page = page.next ? await spApi(page.next) : null; }
+      try { const meta = await spApi('/playlists/' + ref.id + '?fields=name'); title = meta.name || 'Playlist'; } catch { title = 'Playlist'; }
+      let page = await spApi('/playlists/' + ref.id + '/items?limit=50&additional_types=track');
+      while (page) { items.push(...(page.items || []).filter(x => x && !x.is_local).map(x => x.item || x.track).filter(t => t && t.type === 'track' && !t.is_local && t.uri)); page = page.next ? await spApi(page.next) : null; }
     }
   } catch (e) {
     status.textContent = '';
+    if (e.status === 403 && ref.kind === 'playlist') { spNotYoursHelp(status); return; }
     if (e.status === 404) { spMixHelp(status, true); return; }
     return toast('Spotify: ' + e.message);
   }
@@ -1282,6 +1287,34 @@ async function spImport(link) {
   spSaveLib(); paintTracks(); status.textContent = ''; sheet.hidden = true;
   toast(`${title}: ${added} song${added === 1 ? '' : 's'} added from Spotify. Lyrics load as each song plays.`);
   if (added) selectTrack(first, false);
+}
+function spNotYoursHelp(el) {
+  el.innerHTML = '';
+  const hd = document.createElement('b'); hd.textContent = 'This playlist belongs to someone else.';
+  const p = document.createElement('span'); p.textContent = ' Since February 2026 Spotify only lets apps read playlists you own or collaborate on. Two easy ways:';
+  const ol = document.createElement('ol'); ol.style.cssText = 'margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px';
+  for (const t of ['Just play it in your Spotify app. Stellar follows along and adds each song with its lyrics as it comes on.',
+    'Or make a copy that is yours: in Spotify open the playlist, click a song, press Ctrl+A, right-click, Add to playlist, New playlist. It then appears under Your playlists below.']) { const li = document.createElement('li'); li.textContent = t; ol.appendChild(li); }
+  el.append(hd, p, ol); if (!S.spFollowAll) { S.spFollowAll = true; save(); paintControls(); }
+}
+async function spLoadMyPlaylists() {
+  const box = $('#spMine'); if (!box || !spAuth) return;
+  box.innerHTML = '<p class="hint">Loading your playlists...</p>';
+  let all = [];
+  try { let page = await spApi('/me/playlists?limit=50'); while (page && all.length < 300) { all.push(...(page.items || [])); page = page.next ? await spApi(page.next) : null; } }
+  catch (e) { box.innerHTML = ''; return; }
+  const mine = all.filter(pl => pl && (pl.collaborative || (pl.owner && spUser && pl.owner.id === spUser.id)));
+  box.innerHTML = '';
+  if (!mine.length) { box.innerHTML = '<p class="hint">You have no playlists of your own yet. Make one in Spotify and it shows up here.</p>'; return; }
+  const hd = document.createElement('span'); hd.className = 'label'; hd.textContent = 'Your playlists'; box.appendChild(hd);
+  for (const pl of mine) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'st';
+    const c = document.createElement('span'); c.className = 'cover'; const img = (pl.images || []).slice(-1)[0];
+    if (img) c.setAttribute('style', `background-image:url("${img.url}")`); else { c.setAttribute('style', coverStyle({name: pl.name})); c.textContent = (pl.name || '?').charAt(0).toUpperCase(); }
+    const n = document.createElement('span'); n.className = 'n'; const t = document.createElement('span'); t.className = 't'; t.textContent = pl.name;
+    const a = document.createElement('span'); a.className = 'a'; const total = (pl.items || pl.tracks || {}).total; a.textContent = (total != null ? total + ' songs' : '') + (pl.collaborative ? ' \u00B7 collaborative' : '');
+    n.append(t, a); b.append(c, n); b.addEventListener('click', () => spImport('spotify:playlist:' + pl.id)); box.appendChild(b);
+  }
 }
 function spMixHelp(el, unknown) {
   el.innerHTML = '';
@@ -1294,7 +1327,7 @@ function spMixHelp(el, unknown) {
 }
 function paintSpotify() {
   const st = $('#spConn'); if (!st) return;
-  st.textContent = !spAuth ? 'Not connected' : !spUser ? 'Connecting' : `Connected as ${spUser.display_name || spUser.id}` + (spDevice ? ' · plays in this page' : spUser.product === 'premium' ? '' : ' · follows your Spotify app (Free account)');
+  st.textContent = !spAuth ? 'Not connected' : !spUser ? 'Connecting' : `Connected as ${spUser.display_name || spUser.id}` + (spDevice ? ' · plays in this page' : ' · follows your Spotify app');
   $('#spLogin').hidden = !!spAuth; $('#spLogout').hidden = !spAuth;
 }
 $('#spRedirect').textContent = spRedirect();
@@ -1367,7 +1400,7 @@ function nudge(ms) {
 function toggleFS() { const w = $('#stageWrap'); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else if (w.requestFullscreen) w.requestFullscreen().catch(() => toast('Full screen is not available here.')); else toast('Full screen is not available here.'); }
 $('#fsBtn').addEventListener('click', toggleFS); $('#fsExit').addEventListener('click', toggleFS);
 function openSheet(which) { for (const p of ['Lyrics', 'Playlist', 'Settings']) $('#pan' + p).hidden = p !== which; $('#sheetTitle').firstChild.textContent = which + ' '; sheet.hidden = false; if (which === 'Lyrics') lyricsText.focus(); }
-$('#lyricsBtn').addEventListener('click', () => openSheet('Lyrics')); $('#plBtn').addEventListener('click', () => { paintTracks(); openSheet('Playlist'); }); $('#setBtn').addEventListener('click', () => openSheet('Settings'));
+$('#lyricsBtn').addEventListener('click', () => openSheet('Lyrics')); $('#plBtn').addEventListener('click', () => { paintTracks(); openSheet('Playlist'); if (spAuth && spUser && !$('#spMine').children.length) spLoadMyPlaylists(); }); $('#setBtn').addEventListener('click', () => openSheet('Settings'));
 $('#closeSheet').addEventListener('click', () => sheet.hidden = true); sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
 $('#addSongs').addEventListener('click', () => $('#songFile').click());
 $('#songFile').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; if (!files.length) return; const first = tracks.length;
