@@ -8,8 +8,9 @@ Music projects, lyrics and the **Stellar** lyric player.
 
 - **Spotify-style player**: a library sidebar with cover art read from your MP3s, and a Lyrics view where the whole song scrolls by itself, the current line lights up word by word, and clicking any line jumps the song there. The background takes its colour from the cover.
 - **English letters** for Telugu and Hindi lyrics, on by default (toggle in the bottom bar).
-- **Sky view** with animated lyric styles: Constellation, Orbit, Comet, Supernova, Star map, Eclipse, Nebula, Telemetry.
-- **Skies**: Observatory, Nebula, Aurora, Lunar, Warp.
+- **Sky view** with eleven animated lyric styles. Pulsar, Meteor and Signal are timed to each word: a shock ring, a meteor strike or a spike on an oscilloscope trace lands the instant the word is sung. Also Constellation, Orbit, Comet, Supernova, Star map, Eclipse, Nebula, Telemetry.
+- **Word timing**: when lyrics only time each line, words are timed by syllables ("lights" one beat, "neon" two, Telugu and Hindi included), so word-by-word effects follow the singing.
+- **Skies**: Observatory, Nebula, Aurora, Lunar, Warp, Black hole (accretion disk, photon ring, lensed stars), Planetarium (a turning dome sky with projector and seats), Galaxy flythrough.
 - **Lyrics**: fetched per song from LRCLIB and auto-synced to your recording; or paste plain text, `.lrc` with `[mm:ss.xx]` line times, or `<mm:ss.xx>` word times. Tap-to-sync times lyrics by hand.
 - **Languages**: Telugu and other Indic scripts render with proper conjuncts (Noto Sans Telugu is loaded from Google Fonts).
 - Two Telugu and two English demo songs are generated in the browser, so it works before you add anything.

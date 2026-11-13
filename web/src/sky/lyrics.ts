@@ -6,7 +6,7 @@ import { CALM, HYPE, S } from '../core/settings';
 import type { Line, Scene, StyleId } from '../core/types';
 import { clamp, DISPLAY, easeInOut, easeOutBack, easeOutCubic, hash, MOON, MONO, RM, TAU, UIF, units } from '../core/util';
 import { now } from '../audio/engine';
-import { lineAt, spanOf } from '../lyrics/parse';
+import { lineAt, spanOf, wordTimes } from '../lyrics/parse';
 import { titleOf } from '../player/library';
 
 // ---------- layout: where every word and letter of a line sits on the sky ----------
@@ -42,11 +42,13 @@ function getLayout(text: string, emph: boolean): Layout {
   if (layoutCache.size > 60) layoutCache.clear(); layoutCache.set(key, L); return L;
 }
 type K = (ch: { i: number; wi: number }) => number;
-function kOf(line: Line, L: Layout, ch: { i: number; wi: number }, t: number, p: number) {
-  if (line.words && line.words[ch.wi]) { const w = line.words[ch.wi]; return clamp((t - w.t) / Math.max(0.08, w.end - w.t), 0, 1); }
-  return clamp(p * L.n - ch.i, 0, 1);
+// How far through being sung a letter is (0..1), using the word's own start and end.
+function kOf(line: Line, L: Layout, ch: { i: number; wi: number }, t: number) {
+  const wt = wordTimes(line)[ch.wi], wd = L.words[ch.wi]; if (!wt || !wd) return 0;
+  const n = L.chars.filter(c => c.wi === ch.wi).length || 1;
+  return clamp(clamp((t - wt.t) / Math.max(0.08, wt.end - wt.t), 0, 1) * n - (ch.i - wd.i), 0, 1);
 }
-function wordStart(line: Line, L: Layout, w: number, span: number) { return line.words && line.words[w] ? line.words[w].t : line.t + span * ((L.words[w] ? L.words[w].i : 0) / L.n); }
+function wordStart(line: Line, _L: Layout, w: number, _span: number) { const wt = wordTimes(line)[w]; return wt ? wt.t : line.t; }
 function glyph(ch: Ch, x: number, y: number, sc: number, rot: number, fill: string, stroke: string | null, lw: number) {
   g.save(); g.translate(x, y); if (rot) g.rotate(rot); g.scale(sc, sc);
   if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.strokeText(ch.c, -ch.w / 2, 0); }
@@ -89,7 +91,7 @@ export function drawLyrics(P: Scene) {
   const line = lines[idx]; if (!line.text) return;
   const emph = /!$/.test(line.text), L = getLayout(line.text, emph), age = T - curStart, span = spanOf(line), p = clamp((t - line.t) / span, 0, 1);
   g.font = font(L.size);
-  const K: K = ch => kOf(line, L, ch, t, p);
+  const K: K = ch => kOf(line, L, ch, t);
   STYLE_FNS[curStyle](L, p, age, P, idx, K, line, t, span, 1);
   g.shadowBlur = 0; g.globalAlpha = 1; g.textAlign = 'left'; g.textBaseline = 'middle';
 }
@@ -250,4 +252,89 @@ const telemetry: StyleFn = (L, _p, age, P, idx, K, line, t) => {
   g.globalAlpha = 1;
 };
 
-const STYLE_FNS: Record<Exclude<StyleId, 'auto'>, StyleFn> = { constellation, orbit, comet, supernova, starmap, eclipse, nebula, telemetry };
+// ---------- word-timed styles: motion lands exactly when each word is sung ----------
+const sungFrac = (wt: { t: number; end: number }, t: number) => clamp((t - wt.t) / Math.max(0.08, wt.end - wt.t), 0, 1);
+
+// Pulsar: each word fires a shock ring the instant it is sung, then fills with light at the speed it is sung.
+const pulsar: StyleFn = (L, _p, _age, P, _idx, _K, line, t, _span, alphaMul) => {
+  const wts = wordTimes(line);
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = font(L.size);
+  L.words.forEach((w, i) => {
+    const wt = wts[i]; if (!wt) return;
+    const since = t - wt.t, frac = sungFrac(wt, t);
+    g.globalAlpha = alphaMul * (since < 0 ? 0.28 : 0.55); g.fillStyle = P.lyr; g.fillText(w.text, w.x, w.y);
+    if (since < 0) return;
+    if (since < 0.7 && !RM) {
+      const k = since / 0.7, e = easeOutCubic(k);
+      g.strokeStyle = P.accent; g.lineWidth = 2.2 * (1 - k) + 0.5; g.globalAlpha = alphaMul * (1 - k) * 0.9;
+      g.beginPath(); g.ellipse(w.cx, w.y, w.w * 0.55 + L.size * 1.4 * e, L.size * 0.45 + L.size * 0.9 * e, 0, 0, TAU); g.stroke();
+    }
+    g.save(); g.beginPath(); g.rect(w.x - 2, w.y - L.size, (w.w + 4) * frac, L.size * 2); g.clip();
+    const gr = g.createLinearGradient(w.x, 0, w.x + w.w, 0); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, P.accent);
+    g.shadowColor = P.accent; g.shadowBlur = L.size * (0.25 + 0.4 * Math.max(0, 1 - since * 2)); g.globalAlpha = alphaMul; g.fillStyle = gr; g.fillText(w.text, w.x, w.y); g.restore();
+    if (frac < 1) { const r = 3 + 4 * (1 - frac) + fx.pulse * 3; g.fillStyle = '#fff'; g.globalAlpha = alphaMul * 0.9; sparkle(w.cx, w.y - L.size * 0.75, r, fx.T * 2); g.fill(); }
+  });
+  g.globalAlpha = 1; g.shadowBlur = 0;
+};
+
+// Meteor: each word streaks in and strikes at the exact moment it is sung (the flight starts just before).
+const landed = new Set<string>();
+const meteor: StyleFn = (L, _p, _age, P, idx, _K, line, t, _span, alphaMul) => {
+  const wts = wordTimes(line), lead = 0.38;
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = font(L.size);
+  L.words.forEach((w, i) => {
+    const wt = wts[i]; if (!wt) return; const dtw = t - wt.t;
+    if (dtw < 0) {
+      g.globalAlpha = alphaMul * 0.12; g.fillStyle = P.lyr; g.fillText(w.text, w.x, w.y);
+      if (dtw < -lead) return;
+      const k = 1 + dtw / lead, e = k * k, sx = w.cx + W * 0.35, sy = w.y - H * 0.55, x = sx + (w.cx - sx) * e, y = sy + (w.y - sy) * e;
+      const tail = 140 * (0.4 + k), dx = sx - w.cx, dy = sy - w.y, d = Math.hypot(dx, dy) || 1;
+      const gr = g.createLinearGradient(x, y, x + dx / d * tail, y + dy / d * tail); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.2, P.accent2 + 'cc'); gr.addColorStop(1, P.accent2 + '00');
+      g.strokeStyle = gr; g.lineCap = 'round'; g.lineWidth = 2 + 3 * k; g.globalAlpha = alphaMul; g.beginPath(); g.moveTo(x, y); g.lineTo(x + dx / d * tail, y + dy / d * tail); g.stroke();
+      g.fillStyle = '#fff'; circle(x, y, 2.5 + 2 * k);
+      return;
+    }
+    const key = idx + ':' + i;
+    if (!landed.has(key)) {
+      landed.add(key); if (landed.size > 400) landed.clear();
+      if (!RM) for (let k = 0; k < 10 && fxParts.length < 220; k++) { const a = Math.PI + Math.random() * Math.PI, sp = 80 + Math.random() * 220; fxParts.push({ x: w.cx, y: w.y + L.size * 0.3, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 0.5 + Math.random() * 0.4, s: 1.2 + Math.random() * 1.8, col: Math.random() < 0.5 ? '#fff' : P.accent }); }
+    }
+    const a = clamp(dtw / 0.28, 0, 1), sc = 1.25 - 0.25 * easeOutBack(a), shake = RM ? 0 : (1 - a) * L.size * 0.06 * Math.sin(dtw * 90), singing = sungFrac(wt, t) < 1;
+    if (dtw < 0.4) {
+      const gl = g.createRadialGradient(w.cx, w.y, 0, w.cx, w.y, L.size * 1.6); gl.addColorStop(0, P.accent + 'aa'); gl.addColorStop(1, P.accent + '00');
+      g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = alphaMul * (1 - dtw / 0.4); g.fillStyle = gl; circle(w.cx, w.y, L.size * 1.6); g.restore();
+    }
+    g.save(); g.translate(w.cx + shake, w.y); g.scale(sc, sc); g.globalAlpha = alphaMul; g.shadowColor = P.accent; g.shadowBlur = L.size * (singing ? 0.45 : 0.15);
+    g.fillStyle = singing ? '#fff' : P.lyr; g.fillText(w.text, -w.w / 2, 0); g.restore();
+  });
+  g.globalAlpha = 1; g.shadowBlur = 0;
+};
+
+// Signal: words sit on an oscilloscope trace; each one spikes the trace and springs up as it is sung.
+const signal: StyleFn = (L, _p, _age, P, _idx, _K, line, t, _span, alphaMul) => {
+  const wts = wordTimes(line), { x, maxW } = LY.lyr, x0 = x - maxW * 0.48, x1 = x + maxW * 0.48;
+  g.lineWidth = 1.2; g.strokeStyle = P.accent2; g.lineJoin = 'round';
+  for (const ry of [...new Set(L.words.map(w => w.y))]) {
+    g.globalAlpha = alphaMul * 0.6; g.beginPath();
+    for (let px = x0; px <= x1; px += 4) {
+      let dy = Math.sin(px * 0.05 + fx.T * 4) * 1.5 * (0.5 + fx.pulse);
+      L.words.forEach((w, i) => {
+        if (w.y !== ry || !wts[i]) return; const s = t - wts[i].t;
+        if (s >= 0 && s < 0.6) { const d = (px - w.cx) / (w.w * 0.5 + 10); dy -= Math.exp(-d * d * 3) * L.size * 0.6 * Math.exp(-s * 6) * Math.cos(s * 30); }
+      });
+      const by = ry + L.size * 0.62 + dy; if (px === x0) g.moveTo(px, by); else g.lineTo(px, by);
+    }
+    g.stroke();
+  }
+  g.font = font(L.size); g.textAlign = 'left'; g.textBaseline = 'middle';
+  L.words.forEach((w, i) => {
+    const wt = wts[i]; if (!wt) return; const s = t - wt.t, frac = sungFrac(wt, t);
+    const rise = s < 0 ? 0 : 1 - Math.exp(-s * 9) * Math.cos(s * 14), yy = w.y + L.size * 0.18 - rise * L.size * 0.18;
+    g.globalAlpha = alphaMul * (s < 0 ? 0.3 : 1); g.fillStyle = s >= 0 && frac < 1 ? '#fff' : P.lyr;
+    g.shadowColor = P.accent2; g.shadowBlur = s >= 0 && frac < 1 ? L.size * 0.35 : 0; g.fillText(w.text, w.x, yy); g.shadowBlur = 0;
+    if (s >= 0 && frac < 1) { g.fillStyle = P.accent; g.globalAlpha = alphaMul; g.fillRect(w.x, w.y + L.size * 0.5, w.w * frac, 2.5); }
+  });
+  g.globalAlpha = 1;
+};
+
+const STYLE_FNS: Record<Exclude<StyleId, 'auto'>, StyleFn> = { constellation, orbit, comet, supernova, starmap, eclipse, nebula, telemetry, pulsar, meteor, signal };

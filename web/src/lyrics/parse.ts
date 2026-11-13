@@ -1,7 +1,6 @@
 import { app } from '../core/store';
 import { S } from '../core/settings';
 import type { Line, Word } from '../core/types';
-import { clamp } from '../core/util';
 import { now } from '../audio/engine';
 import { capFirst, roman } from './roman';
 
@@ -53,15 +52,40 @@ export function lineAt(t: number) {
 // How long a line takes to sing, used when there are no word times.
 export const spanOf = (l: Line) => Math.max(0.3, Math.min(l.end - l.t, 0.6 + l.text.length * 0.11) * 0.95);
 
+// Rough syllable count: singing time follows syllables, not letters ("lights" is one beat, "neon" two).
+export function syllables(w: string): number {
+  if (/[ऀ-෿]/.test(w)) {
+    // Indic scripts: each consonant or vowel letter starts a syllable unless a virama joins it to the next.
+    const letters = (w.match(/[ऄ-हक़-ॡஅ-ஹఅ-హౘ-ౡಅ-ಹഅ-ഹ]/g) || []).length;
+    const joins = (w.match(/[्்్್്]/g) || []).length;
+    // Hindi drops the vowel of a word's final consonant ("pyaar", "dil"), so that letter adds no syllable.
+    const hindiFinal = /[क-हक़-य़]़?$/.test(w) && letters - joins > 1 ? 1 : 0;
+    return Math.max(1, letters - joins - hindiFinal);
+  }
+  const s = w.toLowerCase().replace(/[^a-z]/g, '');
+  if (!s) return 1;
+  let n = (s.match(/[aeiouy]+/g) || []).length;
+  n += (s.match(/eo|ia|io|ua|uo/g) || []).length; // vowel pairs sung as two ("ne-on", "di-al")
+  if (n > 1 && /[^aeiouy]e$/.test(s) && !/[^aeiouy]le$/.test(s)) n--; // silent final e ("time", "make")
+  return Math.max(1, n);
+}
+
+// Start and end of every word on screen. Exact when the lyrics carry word times;
+// otherwise the line's singing time is shared out by syllables, with a small gap between words.
+export function wordTimes(l: Line): { t: number; end: number }[] {
+  if (l.wt) return l.wt;
+  const ws = l.text.split(/\s+/).filter(Boolean);
+  if (l.words && l.words.length === ws.length) return (l.wt = l.words.map(w => ({ t: w.t, end: w.end })));
+  const weights = ws.map(w => syllables(w) + 0.35), total = weights.reduce((a, b) => a + b, 0) || 1, span = spanOf(l);
+  let acc = 0;
+  return (l.wt = weights.map(w => { const t = l.t + span * acc / total; acc += w; return { t, end: l.t + span * acc / total }; }));
+}
+
 // The current line, and how many of its words have been sung.
 export function lyricState(): [number, number] {
   const lines = app.lines; if (!lines.length) return [-1, 0];
   const t = now(), idx = lineAt(t); let wOn = 0;
-  if (idx >= 0 && lines[idx].text) {
-    const l = lines[idx];
-    if (l.words) wOn = l.words.filter(w => w.t <= t + LEAD).length;
-    else wOn = Math.ceil(clamp((t - l.t + LEAD) / spanOf(l), 0, 1) * l.text.split(/\s+/).length);
-  }
+  if (idx >= 0 && lines[idx].text) wOn = wordTimes(lines[idx]).filter(w => w.t <= t + 0.06).length;
   return [idx, wOn];
 }
 

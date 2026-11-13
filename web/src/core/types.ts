@@ -1,5 +1,5 @@
 export interface Word { t: number; end: number; text: string }
-export interface Line { t: number; end: number; text: string; words: Word[] | null }
+export interface Line { t: number; end: number; text: string; words: Word[] | null; wt?: { t: number; end: number }[] }
 
 export interface DemoSpec {
   bpm: number; bars: number; prog: number[][]; roots: number[]; lead: 'square' | 'triangle'; cut: number; breaks: number[];
@@ -28,8 +28,8 @@ export interface Scene {
 }
 
 export type SheetName = 'Lyrics' | 'Playlist' | 'Settings' | null;
-export type StyleId = 'auto' | 'constellation' | 'orbit' | 'comet' | 'supernova' | 'starmap' | 'eclipse' | 'nebula' | 'telemetry';
-export type SceneId = 'observatory' | 'nebula' | 'aurora' | 'lunar' | 'warp';
+export type StyleId = 'auto' | 'constellation' | 'orbit' | 'comet' | 'supernova' | 'starmap' | 'eclipse' | 'nebula' | 'telemetry' | 'pulsar' | 'meteor' | 'signal';
+export type SceneId = 'observatory' | 'nebula' | 'aurora' | 'lunar' | 'warp' | 'blackhole' | 'dome' | 'galaxy';
 
 export interface LrclibRecord {
   id: number; trackName: string; artistName: string; albumName: string; duration: number;

@@ -5,6 +5,7 @@ import { fx, cam, mouse, stars, flares, shots, rings, type Particle } from '../c
 import { CONST, CINE, S, type Constellation } from '../core/settings';
 import type { Scene, SceneId } from '../core/types';
 import { clamp, hash, MOON, MONO, RM, TAU, UIF } from '../core/util';
+import { drawBlackHole, drawDome, drawGalaxy } from './scenes2';
 
 let mwC: HTMLCanvasElement | null = null, nebC: HTMLCanvasElement | null = null;
 export const resetSkyCaches = () => { mwC = null; nebC = null; };
@@ -19,7 +20,7 @@ export function sparkle(x: number, y: number, R: number, rot: number) {
 // Parallax offset for a depth layer (0 far, 2 near) from the mouse and the camera drift.
 function par(l: number): [number, number] { const k = [0.15, 0.3, 0.5][l]; return [-mouse.x * W * 0.08 * k * 4 - cam.x * k * 2, -mouse.y * H * 0.08 * k * 4 - cam.y * k * 2]; }
 
-function skyGradient(P: Scene) { const s = g.createLinearGradient(0, 0, 0, H); s.addColorStop(0, P.bg[0]); s.addColorStop(0.6, P.bg[1]); s.addColorStop(1, P.bg[2]); g.fillStyle = s; g.fillRect(-W, -H, W * 3, H * 3); }
+export function skyGradient(P: Scene) { const s = g.createLinearGradient(0, 0, 0, H); s.addColorStop(0, P.bg[0]); s.addColorStop(0.6, P.bg[1]); s.addColorStop(1, P.bg[2]); g.fillStyle = s; g.fillRect(-W, -H, W * 3, H * 3); }
 
 function drawStarfield(P: Scene, streak: number) {
   const lv = Math.min(1, fx.level / 100), T = fx.T;
@@ -102,7 +103,7 @@ export function drawFlares(dt: number, P: Scene) {
   }
 }
 
-function shootingStars(P: Scene) {
+export function shootingStars(P: Scene) {
   const dt = fx.frameDt;
   fx.shotT -= dt;
   if (fx.shotT < 0 && !RM) { fx.shotT = 3 + Math.random() * 6; const a = 0.4 + Math.random() * 0.5; shots.push({ x: Math.random() * W * 0.8, y: Math.random() * H * 0.3, vx: Math.cos(a) * 900, vy: Math.sin(a) * 900, life: 0 }); }
@@ -114,7 +115,7 @@ function shootingStars(P: Scene) {
   g.globalAlpha = 1;
 }
 
-function drawRings(P: Scene) {
+export function drawRings(P: Scene) {
   for (let i = rings.length - 1; i >= 0; i--) {
     const r = rings[i]; r.r += fx.frameDt * Math.max(W, H) * 0.6; r.a -= fx.frameDt; if (r.a <= 0) { rings.splice(i, 1); continue; }
     g.strokeStyle = P.accent; g.globalAlpha = clamp(r.a, 0, 1) * 0.35; g.lineWidth = 1; g.beginPath(); g.arc(W / 2, H / 2, r.r, 0, TAU); g.stroke();
@@ -122,7 +123,7 @@ function drawRings(P: Scene) {
   g.globalAlpha = 1;
 }
 
-function drawViz(P: Scene) {
+export function drawViz(P: Scene) {
   const { freq, tdata } = audio, cx = W / 2, cy = H / 2, T = fx.T;
   if (S.viz === 'orbits') {
     g.save(); g.strokeStyle = P.accent2; g.lineWidth = 1;
@@ -207,6 +208,9 @@ export const SCENE_DRAW: Record<SceneId, (P: Scene) => void> = {
     g.lineTo(W + 10, H); g.closePath(); g.fill();
   },
   lunar(P) { skyGradient(P); milkyWay(P, 0.2); drawStarfield(P, 0); drawConstellations(P); drawMoon(P, W * 0.78, H * 0.26, Math.min(W, H) * 0.13); shootingStars(P); drawViz(P); drawRings(P); },
+  blackhole(P) { drawBlackHole(P); },
+  dome(P) { drawDome(P); },
+  galaxy(P) { drawGalaxy(P); },
   warp(P) {
     skyGradient(P);
     const vg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.5); vg.addColorStop(0, P.accent + '2a'); vg.addColorStop(1, P.accent + '00'); g.fillStyle = vg; g.fillRect(0, 0, W, H);

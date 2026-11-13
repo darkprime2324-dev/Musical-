@@ -6,11 +6,14 @@ export const SCENES: Record<SceneId, Scene> = {
   aurora: { label: 'Aurora', bg: ['#01050d', '#041224', '#071a30'], star: '#eaf6ff', accent: '#4dffb0', accent2: '#6ac8ff', lyr: '#eef8ff' },
   lunar: { label: 'Lunar', bg: ['#010103', '#06060c', '#0c0c16'], star: '#e8e8f0', accent: '#e4e6f5', accent2: '#8f95b8', lyr: '#f2f2fa' },
   warp: { label: 'Warp', bg: ['#000004', '#02021a', '#050530'], star: '#ffffff', accent: '#8c9bff', accent2: '#ff9bf5', lyr: '#ffffff' },
+  blackhole: { label: 'Black hole', bg: ['#000000', '#05030a', '#0a0612'], star: '#fff3e0', accent: '#ffb35c', accent2: '#ff6a3d', lyr: '#fff4e6' },
+  dome: { label: 'Planetarium', bg: ['#02030a', '#06081a', '#0b0f26'], star: '#e8f0ff', accent: '#7fb2ff', accent2: '#c9a8ff', lyr: '#eef3ff' },
+  galaxy: { label: 'Galaxy flythrough', bg: ['#010008', '#06021a', '#100526'], star: '#ffffff', accent: '#ffd27f', accent2: '#7fc8ff', lyr: '#ffffff' },
 };
 
-export const STYLES: [StyleId, string][] = [['auto', 'Auto mix'], ['constellation', 'Constellation'], ['orbit', 'Orbit'], ['comet', 'Comet'], ['supernova', 'Supernova'], ['starmap', 'Star map'], ['eclipse', 'Eclipse'], ['nebula', 'Nebula'], ['telemetry', 'Telemetry']];
-export const CALM: StyleId[] = ['constellation', 'nebula', 'orbit', 'telemetry'];
-export const HYPE: StyleId[] = ['comet', 'supernova', 'eclipse', 'starmap'];
+export const STYLES: [StyleId, string][] = [['auto', 'Auto mix'], ['pulsar', 'Pulsar'], ['meteor', 'Meteor'], ['signal', 'Signal'], ['constellation', 'Constellation'], ['orbit', 'Orbit'], ['comet', 'Comet'], ['supernova', 'Supernova'], ['starmap', 'Star map'], ['eclipse', 'Eclipse'], ['nebula', 'Nebula'], ['telemetry', 'Telemetry']];
+export const CALM: StyleId[] = ['constellation', 'nebula', 'orbit', 'telemetry', 'pulsar', 'signal'];
+export const HYPE: StyleId[] = ['comet', 'supernova', 'eclipse', 'starmap', 'meteor', 'pulsar'];
 export const VIZ: [string, string][] = [['orbits', 'Orbits'], ['horizon', 'Horizon'], ['wave', 'Waveform'], ['off', 'Off']];
 
 // Constellations: local shapes (x right, y down), lines by index, named bright stars.
