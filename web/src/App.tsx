@@ -5,17 +5,22 @@ import { Stage } from './components/Stage';
 import { Dock } from './components/Dock';
 import { Sheet } from './components/Sheet';
 import { Toast } from './components/Toast';
-import { app, emit, openSheet } from './core/store';
+import { app, emit, openSheet, toast } from './core/store';
 import { bumpFonts } from './sky/canvas';
 import { startLoop } from './sky/loop';
 import { now, seek, togglePlay } from './audio/engine';
-import { addDemos, nextTrack, nudge, prevTrack, selectTrack, toggleFullscreen } from './player/library';
+import { addDemos, enrich, nextTrack, nudge, prevTrack, selectTrack, toggleFullscreen } from './player/library';
+import { restoreSongs, watchLibrary } from './player/persist';
 import { spImport, spLoadMyPlaylists, spParseLink, spRestoreLib, spStart, isConnected } from './spotify/spotify';
 
 let started = false;
-function boot() {
+async function boot() {
   if (started) return; started = true;
-  spRestoreLib(); addDemos(); void selectTrack(0, false);
+  spRestoreLib();
+  const kept = await restoreSongs();
+  if (kept.length) { app.tracks.push(...kept); enrich(kept); }
+  addDemos(); void selectTrack(0, false); watchLibrary();
+  if (kept.length) toast(`Welcome back: ${kept.length} song${kept.length === 1 ? '' : 's'} from your computer restored.`);
   void spStart();
   startLoop();
   if (document.fonts) {
@@ -28,7 +33,7 @@ const typing = (t: EventTarget | null) => !!t && /^(TEXTAREA|INPUT)$/.test((t as
 
 export function App() {
   useEffect(() => {
-    boot();
+    void boot();
     const onKey = (e: KeyboardEvent) => {
       if (typing(e.target)) return;
       if (e.code === 'Space') { e.preventDefault(); togglePlay(); }

@@ -11,6 +11,7 @@ import { autoFind, cacheGet, cacheSet, lrcFromResult } from '../lyrics/lrclib';
 import { autoSync } from '../lyrics/autosync';
 import { resetLyricAnim } from '../sky/lyrics';
 import { spCurrent, spSaveLib } from '../spotify/spotify';
+import { forgetSong, storeSongs } from './persist';
 import type { LrclibRecord } from '../core/types';
 
 export const titleOf = (t: Track) => t.meta?.title || t.name;
@@ -80,7 +81,7 @@ async function afterLoad(tr: Track, i: number) {
   if (app.cur !== i) return;
   if (tr.lrc) { setLines(parseLyrics(tr.lrc, dur())); app.lyricsDraft = tr.lrc; }
   emit();
-  if (tr.lrc && !tr.synced && !tr.sp && S.autosync && /\[\d+:\d/.test(tr.lrc)) void autoSync(tr);
+  if (tr.lrc && !tr.synced && !tr.sp && S.autosync && /\[\d+:\d/.test(tr.lrc)) void autoSync(tr, false, true);
 }
 
 export function addDemos() {
@@ -89,7 +90,7 @@ export function addDemos() {
   emit();
 }
 
-function enrich(list: Track[]) {
+export function enrich(list: Track[]) {
   for (const t of list) if (t.file) void readTags(t.file).then(tags => {
     if (tags.cover) t.cover = tags.cover;
     if (!t.meta) t.meta = { title: cleanTitle(tags.title || t.name), artist: cleanTitle(tags.artist || ''), album: tags.album || '' };
@@ -101,7 +102,7 @@ export function addSongFiles(files: File[]) {
   if (!files.length) return;
   const first = app.tracks.length;
   for (const f of files) app.tracks.push({ name: cleanTitle(f.name), artist: '', lrc: '', file: f, buffer: null });
-  enrich(app.tracks.slice(first)); app.sheet = null; emit();
+  enrich(app.tracks.slice(first)); void storeSongs(app.tracks.slice(first)); app.sheet = null; emit();
   toast(files.length === 1 ? `Added ${files[0].name}` : `Added ${files.length} songs`);
   void selectTrack(first, true);
 }
@@ -114,12 +115,12 @@ export async function addFiles(list: FileList | File[]) {
   audioFiles.sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name));
   const first = app.tracks.length; let paired = 0;
   for (const f of audioFiles) { const l = lrcBy.get(base(f)), t: Track = { name: cleanTitle(f.name), artist: '', lrc: '', file: f, buffer: null }; if (l) { t.lrc = await l.text(); paired++; } app.tracks.push(t); }
-  enrich(app.tracks.slice(first)); app.sheet = null; emit();
+  enrich(app.tracks.slice(first)); void storeSongs(app.tracks.slice(first)); app.sheet = null; emit();
   toast(`Added ${audioFiles.length} song${audioFiles.length > 1 ? 's' : ''}${paired ? `, ${paired} with their own lyrics file` : ''}. The rest get lyrics from LRCLIB as they play.`);
   void selectTrack(first, true);
 }
 export function removeTrack(i: number) {
-  app.tracks.splice(i, 1); spSaveLib();
+  const [gone] = app.tracks.splice(i, 1); spSaveLib(); if (gone) void forgetSong(gone);
   if (i === app.cur) {
     stopAll(); app.buffer = null; setLines([]); app.cur = Math.min(app.cur, app.tracks.length - 1);
     if (app.cur >= 0) void selectTrack(app.cur, false); else { app.cur = -1; emit(); }
@@ -131,7 +132,7 @@ export function applyLyrics() {
   const tr = app.tracks[app.cur]; if (!tr) return toast('Add a song first.');
   tr.lrc = app.lyricsDraft; tr.synced = false; setLines(parseLyrics(tr.lrc, dur())); app.sheet = null; cacheSet(tr, tr.lrc); emit();
   toast(app.lines.length ? `Lyrics applied: ${app.lines.filter(l => l.text).length} lines` : 'No lyrics found. Paste some lines first.');
-  if (app.lines.length && S.autosync && !tr.spec && /\[\d+:\d/.test(tr.lrc)) void autoSync(tr);
+  if (app.lines.length && S.autosync && !tr.spec && /\[\d+:\d/.test(tr.lrc)) void autoSync(tr, false, true);
 }
 export function useResult(r: LrclibRecord) {
   const tr = app.tracks[app.cur]; if (!tr) return toast('Add a song first.');

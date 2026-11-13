@@ -167,7 +167,8 @@ function SettingsPanel({ show }: { show: boolean }) {
           ))}
         </div>
         <span className="label">Quality</span>
-        <Chips id="qualChips" items={[['cine', 'Cinematic'], ['lite', 'Lite']]} value={S.quality} onPick={v => { S.quality = v; }} />
+        <Chips id="qualChips" items={[['cine', 'Cinematic'], ['lite', 'Lite']]} value={S.quality} onPick={v => { S.quality = v; S.qualityAuto = false; S.qualityByApp = false; }} />
+        <p className="hint" id="fpsNote">{app.fps ? `Running at ${app.fps} frames per second. ` : ''}{S.qualityByApp ? 'Stellar switched to Lite because the sky was running slowly on this computer. Choose Cinematic to switch back.' : S.qualityAuto ? 'Stellar switches to Lite by itself if this computer struggles.' : 'Automatic switching is off because you chose a quality.'}</p>
         <span className="label">Lyric letters</span>
         <Chips id="letterChips" items={[['orig', 'As written'], ['roman', 'English letters']]} value={S.roman ? 'roman' : 'orig'} onPick={v => setRoman(v === 'roman')} />
         <span className="label">Auto-sync to the audio</span>

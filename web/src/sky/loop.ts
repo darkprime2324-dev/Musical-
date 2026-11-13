@@ -4,9 +4,9 @@ import { drawLyrics } from './lyrics';
 import { post, drawIntro } from './post';
 import { analyse, onBeat, updateCam } from '../audio/analysis';
 import { now } from '../audio/engine';
-import { app, lyricSignal } from '../core/store';
+import { app, emit, lyricSignal, toast } from '../core/store';
 import { cam, fx, fxParts, parts, rings } from '../core/fx';
-import { PAL, S } from '../core/settings';
+import { PAL, S, save } from '../core/settings';
 import { MONO, RM } from '../core/util';
 import { lyricState } from '../lyrics/parse';
 import { spPoll } from '../spotify/spotify';
@@ -27,10 +27,28 @@ function lyricMoment(idx: number, wOn: number): boolean {
   return wOn > pw;
 }
 
+// Smoothness guard: measure frames per second; if Cinematic quality runs slowly on this computer
+// (two 3-second windows under 38 fps), switch to Lite once and say so. Choosing a quality by hand turns this off.
+let fpsFrames = 0, fpsTime = 0, slowWindows = 0, sinceStart = 0;
+function watchSmoothness(dt: number) {
+  sinceStart += dt; if (document.hidden || sinceStart < 4) return;
+  fpsFrames++; fpsTime += dt;
+  if (fpsTime < 3) return;
+  const fps = fpsFrames / fpsTime; fpsFrames = 0; fpsTime = 0;
+  const prev = app.fps; app.fps = Math.round(fps); if (app.sheet === 'Settings' && prev !== app.fps) emit();
+  if (S.quality !== 'cine' || !S.qualityAuto) { slowWindows = 0; return; }
+  slowWindows = fps < 38 ? slowWindows + 1 : 0;
+  if (slowWindows >= 2) {
+    S.quality = 'lite'; S.qualityAuto = false; S.qualityByApp = true; save(); slowWindows = 0; emit();
+    toast(`The sky was running at ${Math.round(fps)} frames per second here, so Stellar switched to Lite quality to keep it smooth. You can switch back in Settings.`);
+  }
+}
+
 let last = 0, running = false;
 function frame(ts: number) {
   if (!running) return;
-  const dt = Math.min(0.05, (ts - (last || ts)) / 1000); last = ts; fx.T += dt; fx.frameDt = dt;
+  const raw = (ts - (last || ts)) / 1000, dt = Math.min(0.05, raw); last = ts; fx.T += dt; fx.frameDt = dt;
+  if (raw > 0 && raw < 1) watchSmoothness(raw);
   if (g) {
     analyse(dt); updateCam(dt); const P = PAL();
     g.setTransform(DPR, 0, 0, DPR, 0, 0);

@@ -68,11 +68,17 @@ async function spToken() {
   return spAuth!.access;
 }
 class SpotifyError extends Error { constructor(msg: string, public status: number) { super(msg); } }
+// Spotify limits how often an app may call it. When it answers 429 it says how long to wait (Retry-After);
+// no request is sent before then, and the poller also slows down after repeated errors.
+let backoffUntil = 0, pollFails = 0;
+export const spWaitSeconds = () => Math.max(0, Math.ceil((backoffUntil - Date.now()) / 1000));
 async function spApi<T>(path: string, opts: RequestInit = {}): Promise<T | null> {
   const url = path.startsWith('http') ? path : 'https://api.spotify.com/v1' + path;
+  if (Date.now() < backoffUntil) throw new SpotifyError(`Spotify asked Stellar to slow down; try again in ${spWaitSeconds()} s.`, 429);
   const go = async () => fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + await spToken() } });
   let r = await go();
   if (r.status === 401 && spAuth && spAuth.refresh) { spAuth.exp = 0; r = await go(); }
+  if (r.status === 429) { const ra = +(r.headers.get('Retry-After') || 0); backoffUntil = Date.now() + (ra > 0 ? ra : 5) * 1000; throw new SpotifyError(`Spotify asked Stellar to slow down; try again in ${spWaitSeconds()} s.`, 429); }
   if (r.status === 204 || r.status === 202) return null;
   const j = await r.json().catch(() => null) as (T & { error?: { message?: string } }) | null;
   if (!r.ok) throw new SpotifyError(j?.error?.message || ('Spotify answered ' + r.status), r.status);
@@ -150,7 +156,7 @@ export async function spPlay() {
     } else await spApi('/me/player/play', body(same ? {} : { uris: upNext, position_ms: 0 }));
   } catch (e) {
     if (status(e) === 404) toast('Open Spotify on any device first, then press play again.');
-    else if (status(e) === 403) spFollowHint(); else toast('Spotify: ' + (e as Error).message);
+    else if (status(e) === 403) spFollowHint(); else toast(status(e) === 429 ? (e as Error).message : 'Spotify: ' + (e as Error).message);
   }
 }
 export async function spPause() {
@@ -170,18 +176,26 @@ function spFollow(uri: string) {
   spSwitching = true; try { void selectTrack(i, false); } finally { spSwitching = false; }
 }
 export const spCurrent = () => spState;
+// How often to ask Spotify what is playing: every second while a Spotify song plays here,
+// less often when idle, and backing off (up to 30 s) after errors.
+function pollEvery() {
+  if (spPlayer && spDevice) return 5000;
+  const base = spTrack() ? (spState.paused ? 3000 : 1000) : (S.spFollowAll ? 4000 : 10000);
+  return Math.min(30000, base * Math.pow(2, pollFails));
+}
 export async function spPoll() {
-  if (!spAuth || document.hidden || performance.now() - spLastPoll < (spPlayer && spDevice ? 5000 : 1000)) return;
+  if (!spAuth || document.hidden || Date.now() < backoffUntil || performance.now() - spLastPoll < pollEvery()) return;
   spLastPoll = performance.now();
   if (spPlayer && spDevice) {
     try { const st = await spPlayer.getCurrentState(); if (st) { spSetState(st.position / 1000, st.paused, trackUri(st.track_window.current_track)); return; } } catch { /* fall back to the API */ }
   }
   try {
     const p = await spApi<{ item: SpotifyTrack | null; progress_ms: number; is_playing: boolean; currently_playing_type: string }>('/me/player/currently-playing?additional_types=track');
-    if (!p || !p.item || p.currently_playing_type !== 'track') return;
+    if (!p || !p.item || p.currently_playing_type !== 'track') { pollFails = 0; return; }
+    pollFails = 0;
     if (!app.tracks.some(t => t.sp && t.sp.uri === p.item!.uri) && S.spFollowAll) { app.tracks.push(spMakeTrack(p.item)); spSaveLib(); emit(); }
     spSetState((p.progress_ms || 0) / 1000 + 0.15, !p.is_playing, p.item.uri);
-  } catch { /* try again next second */ }
+  } catch (e) { if (status(e) !== 429) pollFails = Math.min(5, pollFails + 1); }
 }
 
 function spMakeTrack(t: SpotifyTrack): Track {
@@ -227,7 +241,7 @@ export async function spImport(link: string) {
     app.sp.status = '';
     if (status(e) === 403 && ref.kind === 'playlist') { app.sp.status = 'notYours'; nudgeFollow(); emit(); return; }
     if (status(e) === 404) { app.sp.status = 'mixUnknown'; nudgeFollow(); emit(); return; }
-    emit(); return toast('Spotify: ' + (e as Error).message);
+    emit(); return toast(status(e) === 429 ? (e as Error).message : 'Spotify: ' + (e as Error).message);
   }
   const fresh: Track[] = [];
   for (const t of items) if (!app.tracks.some(x => x.sp && x.sp.uri === t.uri) && !fresh.some(x => x.sp!.uri === t.uri)) fresh.push(spMakeTrack(t));

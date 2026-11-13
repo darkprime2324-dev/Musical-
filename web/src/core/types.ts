@@ -8,6 +8,7 @@ export interface Meta { title: string; artist: string; album: string }
 export interface SpotifyInfo { uri: string; durationMs: number; album: string }
 
 export interface Track {
+  id?: string;                // key of a song kept in browser storage
   name: string;
   artist: string;
   lrc: string;

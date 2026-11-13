@@ -53,7 +53,7 @@ The engine keeps its state in plain objects that the canvas reads every frame; R
 Paste a Spotify playlist, album or song link (Playlist -> *Add from Spotify*, or just paste anywhere on the page). Stellar reads the song list through Spotify's official Web API, shows the album covers, and loads each song's synced lyrics from LRCLIB, matched to the exact Spotify release by length.
 
 - **Spotify Premium**: songs play inside the Stellar page (Spotify Web Playback SDK).
-- **Any account**: play on your phone or the Spotify app; Stellar follows whatever Spotify is playing, switches songs with it and keeps the lyrics in time. Songs you play that aren't in your list are added automatically (Settings -> *Songs played in Spotify*).
+- **Any account**: play on your phone or the Spotify app; Stellar follows whatever Spotify is playing, switches songs with it and keeps the lyrics in time. It checks once a second while a Spotify song plays, less often when idle, and waits as long as Spotify asks whenever it says to slow down. Songs you play that aren't in your list are added automatically (Settings -> *Songs played in Spotify*).
 - Spotify's audio can't be read by other apps, so the beat-reactive visuals and audio auto-sync apply to your own files only. `[` and `]` still nudge the lyrics.
 
 **One-time setup (2 minutes)**
@@ -82,6 +82,8 @@ The same song exists in many versions: different rips, trims, intros and encoder
 
 - **Add songs or open a whole folder.** A `.lrc` file with the same name as a song is used as its lyrics; songs without one are looked up on LRCLIB automatically (title and artist come from the file's tags).
 - Lyrics are auto-synced to the recording when they arrive, and remembered in your browser.
+- **Your songs stay.** Songs added from your computer are kept in the browser's own storage (IndexedDB) with their lyrics, timing fixes and covers, so the library is still there after a reload or restart. *Remove* deletes a song from storage too. Each browser keeps its own copy, and clearing the browser's site data clears it.
+- **Smooth on any laptop.** If the sky runs below about 38 frames per second in Cinematic quality, Stellar switches to Lite once and says so; choosing a quality yourself turns this off. Settings shows the current frame rate.
 - **Lyrics -> Find lyrics online** lists the matches with their length, so you can pick the version that fits your file.
 - **Settings -> Lyric letters -> English letters** shows Telugu and Hindi lyrics in English letters (Aakaasham, Main ghar jaa rahaa hoon).
 - Still off? `[` and `]` nudge by 0.1 s, `{` and `}` by 1 s. *Sync every word* lets you tap each word for true karaoke timing.

@@ -90,12 +90,12 @@ export const DEMOS: { name: string; artist: string; spec: DemoSpec; lrc: string 
 
 export interface Settings {
   style: StyleId; scene: SceneId; viz: string; cam: boolean; intro: boolean; names: boolean; lines: boolean;
-  parts: 'high' | 'low'; quality: 'cine' | 'lite'; roman: boolean; autosync: boolean; spFollowAll: boolean;
+  parts: 'high' | 'low'; quality: 'cine' | 'lite'; qualityAuto: boolean; qualityByApp?: boolean; roman: boolean; autosync: boolean; spFollowAll: boolean;
   view: 'list' | 'sky'; viewVer?: number;
 }
 export const S: Settings = {
   style: 'auto', scene: 'observatory', viz: 'orbits', cam: true, intro: true, names: true, lines: true,
-  parts: 'high', quality: 'cine', roman: false, autosync: true, spFollowAll: true, view: 'list',
+  parts: 'high', quality: 'cine', qualityAuto: true, roman: false, autosync: true, spFollowAll: true, view: 'list',
 };
 try { Object.assign(S, JSON.parse(localStorage.getItem('stellar-lyrics') || '{}')); } catch { /* first visit */ }
 if (!SCENES[S.scene]) S.scene = 'observatory';

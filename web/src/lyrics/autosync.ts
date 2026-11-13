@@ -46,17 +46,18 @@ export function findOffset(o: Float32Array, starts: number[]) {
 }
 
 let syncRun = 0;
-export async function autoSync(tr: Track | undefined, quiet = false) {
+// auto: started by the app rather than the Auto-sync button, so it only speaks up when it changes something.
+export async function autoSync(tr: Track | undefined, quiet = false, auto = false) {
   if (!tr || tr.spec) return;
   const buffer = app.buffer;
   if (!buffer) { if (!quiet && tr.sp) toast('Spotify audio cannot be analysed, so auto-sync is off for Spotify songs. Their lyrics are matched to the exact Spotify release; use [ and ] if one is off.'); return; }
   const run = ++syncRun, raw = parseLyrics(tr.lrc || '', dur(), true), sung = raw.filter(l => l.text);
-  if (sung.length < 4) { if (!quiet) toast('Auto-sync needs timed lyrics with at least four lines.'); return; }
+  if (sung.length < 4) { if (auto) tr.synced = true; else if (!quiet) toast('Auto-sync needs timed lyrics with at least four lines.'); return; }
   setSyncPill('Syncing');
   const o = await vocalOnsets(buffer); if (run !== syncRun || curTrack() !== tr) return;
   const { offset, z, lead } = findOffset(o, sung.map(l => l.t));
-  if (z < 3 || lead < 0.5) { tr.synced = true; setSyncPill('Sync: no clear match'); if (!quiet) toast('No clear match between these lyrics and the singing, so the timings were left as they were. Use [ and ] to nudge them.'); return; }
-  if (Math.abs(offset) < 0.05) { tr.synced = true; setSyncPill('In sync', true); if (!quiet) toast('These lyrics already match this recording.'); return; }
+  if (z < 3 || lead < 0.5) { tr.synced = true; setSyncPill('Sync: no clear match'); if (!quiet && !auto) toast('No clear match between these lyrics and the singing, so the timings were left as they were. Use [ and ] to nudge them.'); return; }
+  if (Math.abs(offset) < 0.05) { tr.synced = true; setSyncPill('In sync', true); if (!quiet && !auto) toast('These lyrics already match this recording.'); return; }
   for (const l of raw) { l.t += offset; if (l.words) for (const w of l.words) { w.t += offset; w.end += offset; } }
   const meta = tr.lrc.match(/^\[(ti|ar|al):[^\]]*\]$/gim) || [], sign = offset >= 0 ? '+' : '-', src = (tr.lrc.match(/\[by:(?:[^\]]*?)(LRCLIB #\d+)/) || [, 'your lyrics'])[1];
   tr.lrc = toLrc(raw, meta, `[by:auto-synced to this recording ${sign}${Math.abs(offset).toFixed(2)} s, ${src}]`);

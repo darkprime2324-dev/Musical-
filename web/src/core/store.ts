@@ -33,6 +33,7 @@ export const app = {
   syncPill: { text: '', ok: false },
   toast: '',
   lvTint: '',
+  fps: 0,
   lyric: { idx: -1, wOn: 0, moved: false },
   tapSync: { active: false, words: false, list: [] as string[], i: 0, w: 0 },
   sp: { status: '' as SpStatus, mine: null as SpotifyPlaylist[] | 'loading' | 'none' | null, conn: 'Not connected', connected: false },
