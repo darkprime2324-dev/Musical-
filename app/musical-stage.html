@@ -974,8 +974,8 @@ async function selectTrack(i, autoplay) {
   stopAll(); cur = i; const tr = tracks[i]; buffer = null; lines = []; curIdx = -2; lastBeatT = -1; intervals = [];
   lyricsText.value = tr.lrc || ''; updateUI(); paintTracks();
   if (!tr.buffer) { tr.loading = true; updateUI();
-    try { tr.buffer = tr.spec ? await renderDemo(tr.spec) : tr.url ? await ensureAC().decodeAudioData(await (await fetch(tr.url)).arrayBuffer()) : await ensureAC().decodeAudioData(await tr.file.arrayBuffer()); }
-    catch { tr.loading = false; updateUI(); toast(tr.url ? `${tr.name} could not be loaded.` : `${tr.name} could not be played. Try an MP3, M4A, WAV or OGG file.`); return; }
+    try { tr.buffer = tr.spec ? await renderDemo(tr.spec) : tr.url ? await ensureAC().decodeAudioData(await (async () => { const r = await fetch(tr.url); if (!r.ok) throw new Error('missing'); return r.arrayBuffer(); })()) : await ensureAC().decodeAudioData(await tr.file.arrayBuffer()); }
+    catch { tr.loading = false; if (tr.url) { tracks.splice(i, 1); paintTracks(); if (tracks.length) selectTrack(Math.min(i, tracks.length - 1), autoplay); else { cur = -1; updateUI(); } return; } updateUI(); toast(`${tr.name} could not be played. Try an MP3, M4A, WAV or OGG file.`); return; }
     tr.loading = false; if (cur !== i) return; }
   buffer = tr.buffer; lines = parseLyrics(tr.lrc || '', buffer.duration); updateUI(); paintTracks(); if (autoplay) play();
   afterLoad(tr, i);
