@@ -195,6 +195,10 @@ const CONST = [
   {name:'Crux', px:0.6, py:0.9, s:0.07, stars:[[0.5,0,.8],[0.5,1,1,'Acrux'],[0,0.55,.7],[1,0.45,.8]], lines:[[0,1],[2,3]]}
 ];
 
+// Songs published next to the page (loaded with fetch).
+const BUILTIN = [
+  {name:'Yetu Pone', artist:'Kaala Bhairava · Dear Comrade (2019)', url:'songs/yetu-pone.mp3', lrc:''}
+];
 const DEMOS = [
   {name:'ఆకాశం (Aakasam)', artist:'Stellar demo · Telugu', spec:{bpm:120, bars:24, prog:[[57,60,64],[53,57,60],[48,52,55],[55,59,62]], roots:[45,41,48,43], lead:'square', cut:1400, breaks:[8,9]},
    lrc:`[00:02.00]<00:02.00>నక్షత్రాలు <00:03.00>మెరిసే <00:03.70>రాత్రి
@@ -716,12 +720,12 @@ async function selectTrack(i, autoplay) {
   stopAll(); cur = i; const tr = tracks[i]; buffer = null; lines = []; curIdx = -2; lastBeatT = -1; intervals = [];
   lyricsText.value = tr.lrc || ''; updateUI(); paintTracks();
   if (!tr.buffer) { tr.loading = true; updateUI();
-    try { tr.buffer = tr.spec ? await renderDemo(tr.spec) : await ensureAC().decodeAudioData(await tr.file.arrayBuffer()); }
-    catch { tr.loading = false; toast(`${tr.name} could not be played. Try an MP3, M4A, WAV or OGG file.`); return; }
+    try { tr.buffer = tr.spec ? await renderDemo(tr.spec) : tr.url ? await ensureAC().decodeAudioData(await (await fetch(tr.url)).arrayBuffer()) : await ensureAC().decodeAudioData(await tr.file.arrayBuffer()); }
+    catch { tr.loading = false; updateUI(); toast(tr.url ? `${tr.name} could not be loaded.` : `${tr.name} could not be played. Try an MP3, M4A, WAV or OGG file.`); return; }
     tr.loading = false; if (cur !== i) return; }
   buffer = tr.buffer; lines = parseLyrics(tr.lrc || '', buffer.duration); updateUI(); paintTracks(); if (autoplay) play();
 }
-function addDemos() { for (const d of DEMOS) if (!tracks.some(t => t.lrc === d.lrc)) tracks.push({name: d.name, artist: d.artist, lrc: d.lrc, spec: d.spec, buffer: null}); paintTracks(); }
+function addDemos() { for (const d of [...BUILTIN, ...DEMOS]) if (!tracks.some(t => t.lrc === d.lrc)) tracks.push({name: d.name, artist: d.artist, lrc: d.lrc, spec: d.spec, url: d.url, buffer: null}); paintTracks(); }
 function paintTracks() {
   const el = $('#trackList'); el.innerHTML = '';
   if (!tracks.length) { el.innerHTML = '<p class="hint">No songs yet. Add songs from this device, or add the demo songs.</p>'; return; }
