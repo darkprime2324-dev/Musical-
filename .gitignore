@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+# Ableton
+Backup/
+*.asd
+# FL Studio
+*.flp.bak
+# Logic
+*.logicx/Alternatives/*/Undo Data*
+# Reaper
+*.rpp-bak
+*.reapeaks
+peaks/
+# Pro Tools
+Session File Backups/
+# Generic DAW caches / temp
+*.pkf
+*.peak
+*.tmp
+Freeze Files/
+Bounced Files/tmp/
