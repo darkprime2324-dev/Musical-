@@ -36,7 +36,37 @@ body{height:100%;background:var(--ink);color:var(--fg);font-family:var(--ui);ove
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#161204}
 :is(.btn,.ico,.chip,.swatch,.play,.tr,input,textarea):focus-visible{outline:2px solid var(--cool);outline-offset:2px}
-.stage{flex:1;min-height:0;position:relative;background:#000}
+.body{flex:1;min-height:0;display:flex}
+.stage{flex:1;min-height:0;min-width:0;position:relative;background:#000}
+.side{width:290px;flex:none;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 12px 8px 16px}
+.side-head b{font:500 15px var(--display);letter-spacing:.02em}
+.side-list{flex:1;overflow-y:auto;padding:0 8px 12px;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
+.st{appearance:none;display:flex;align-items:center;gap:12px;padding:8px;border-radius:8px;cursor:pointer;background:transparent;border:0;color:var(--fg);text-align:left;font:inherit;width:100%}
+.st:hover{background:var(--raise)}
+.st[aria-current="true"]{background:var(--raise)}
+.st[aria-current="true"] .t{color:var(--accent)}
+.cover{width:46px;height:46px;border-radius:6px;flex:none;background-size:cover;background-position:center;display:grid;place-items:center;font:700 17px var(--display);color:rgba(255,255,255,.92);box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.st .n{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.st .t{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st .a{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st .d{flex:none;font:12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:900px){.side{display:none}}
+.lv{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;background:var(--lvbg,rgba(10,8,20,.72));-webkit-mask-image:linear-gradient(transparent,#000 10%,#000 84%,transparent);mask-image:linear-gradient(transparent,#000 10%,#000 84%,transparent);transition:background .8s}
+.lv::-webkit-scrollbar{display:none}
+.lv-inner{max-width:980px;margin:0 auto;padding-block:30vh 46vh;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:flex-start;gap:20px}
+.lv-meta{font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:6px}
+.ln{appearance:none;border:0;background:none;text-align:left;cursor:pointer;font:700 clamp(24px,3.1vw,44px)/1.22 var(--display);color:rgba(255,255,255,.3);padding:0;transition:color .35s,transform .35s;transform-origin:left center;text-wrap:balance;max-width:100%}
+.ln:hover{color:rgba(255,255,255,.75)}
+.ln.past{color:rgba(255,255,255,.55)}
+.ln.now{color:#fff;transform:scale(1.03)}
+.ln .w{transition:color .18s,text-shadow .18s}
+.ln.now .w{color:rgba(255,255,255,.5)}
+.ln.now .w.on{color:#fff;text-shadow:0 0 22px var(--accent)}
+.ln.gap{font-size:30px;letter-spacing:.3em}
+.ln:focus-visible{outline:2px solid var(--cool);outline-offset:6px;border-radius:6px}
+.lv-empty{display:flex;flex-direction:column;align-items:flex-start;gap:14px;font:700 clamp(22px,2.6vw,34px)/1.3 var(--display);color:rgba(255,255,255,.75)}
+.lv-credit{margin-top:36px;font:12px var(--ui);color:rgba(255,255,255,.45)}
 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;cursor:crosshair}
 .dock{background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;padding-block:10px}
 .transport{display:flex;align-items:center;gap:10px}
@@ -99,8 +129,14 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
     <input type="file" id="songFile" accept="audio/*" multiple hidden>
   </header>
 
+  <div class="body">
+  <aside class="side" aria-label="Your library">
+    <div class="side-head"><b>Your library</b><button class="ico" id="sideAdd" type="button" aria-label="Add songs" title="Add songs"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+    <div class="side-list" id="sideList"></div>
+  </aside>
   <main class="stage" id="stageWrap">
     <canvas id="stage" aria-label="Animated night sky with constellations and lyrics that follow the music"></canvas>
+    <div class="lv" id="lyricView" hidden><div class="lv-inner" id="lvInner"></div></div>
     <div class="sync gutter" id="sync" hidden>
       <div><span class="label">Next line</span><strong id="syncNext"></strong></div>
       <div class="row">
@@ -111,6 +147,7 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
     <div class="drop" id="dropHint" hidden>Drop songs and .lrc files to add them</div>
     <div class="fsdock"><button class="btn" id="fsPlay" type="button">Play / pause</button><button class="btn" id="fsExit" type="button">Exit full screen</button></div>
   </main>
+  </div>
 
   <footer class="dock">
     <div class="transport gutter">
@@ -122,7 +159,11 @@ textarea{width:100%;min-height:200px;background:var(--ink);color:var(--fg);borde
       <span class="time" id="durTime">0:00</span>
     </div>
     <div class="looks gutter">
-      <span class="label">Lyrics</span>
+      <span class="label">View</span>
+      <div class="row nowrap" id="viewChips"></div>
+      <button class="chip" id="engChip" type="button" aria-pressed="true">English letters</button>
+      <span class="sep"></span>
+      <span class="label">Sky lyrics</span>
       <div class="row nowrap" id="styleChips"></div>
       <span class="sep"></span>
       <span class="label">Sky</span>
@@ -281,6 +322,7 @@ const DEMOS = [
 const S = {style:'auto', scene:'observatory', viz:'orbits', cam:true, intro:true, names:true, lines:true, parts:'high', quality:'cine', roman:false, autosync:true};
 try { Object.assign(S, JSON.parse(localStorage.getItem('stellar-lyrics') || '{}')); } catch {}
 if (!SCENES[S.scene]) S.scene = 'observatory';
+if (S.viewVer !== 2) { S.view = 'list'; S.roman = true; S.viewVer = 2; }
 const save = () => { try { localStorage.setItem('stellar-lyrics', JSON.stringify(S)); } catch {} };
 const PAL = () => SCENES[S.scene], CINE = () => S.quality === 'cine';
 
@@ -742,11 +784,11 @@ function frame(ts) {
   g.save(); g.translate(W / 2 + cam.x, H / 2 + cam.y); g.scale(cam.z, cam.z); g.rotate(cam.rot); g.translate(-W / 2, -H / 2);
   SCENE_DRAW[S.scene](P); drawFlares(dt, P); drawParts(parts, dt);
   g.restore();
-  drawLyrics(P); drawParts(fxParts, dt);
+  if (S.view !== 'list') drawLyrics(P); drawParts(fxParts, dt);
   if (hoverConst && !RM) { g.font = `400 11px ${MONO}`; g.fillStyle = P.accent; g.globalAlpha = 0.8; g.textAlign = 'right'; g.fillText(('constellation · ' + hoverConst.name).toUpperCase(), W - 16, H - 16); g.textAlign = 'left'; g.globalAlpha = 1; }
   post(P);
   if (!RM && drop > 0.05) { g.globalAlpha = drop * 0.3; g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.globalAlpha = 1; }
-  drawIntro(dt); tickUI();
+  if (S.view !== 'list') drawIntro(dt); tickUI(); tickLyricView();
   requestAnimationFrame(frame);
 }
 
@@ -766,7 +808,7 @@ async function readTags(file) {
     const head = new Uint8Array(await file.slice(0, 10).arrayBuffer());
     if (head[0] !== 0x49 || head[1] !== 0x44 || head[2] !== 0x33) return {};
     const ver = head[3], size = (head[6] & 127) << 21 | (head[7] & 127) << 14 | (head[8] & 127) << 7 | (head[9] & 127);
-    const b = new Uint8Array(await file.slice(10, 10 + Math.min(size, 2e6)).arrayBuffer()), out = {};
+    const b = new Uint8Array(await file.slice(10, 10 + Math.min(size, 12e6)).arrayBuffer()), out = {};
     let p = 0;
     while (p + 10 <= b.length) {
       const id = String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]); if (!/^[A-Z0-9]{4}$/.test(id)) break;
@@ -777,9 +819,16 @@ async function readTags(file) {
         if (enc === 1 && data[0] === 0xFE && data[1] === 0xFF) { label = 'utf-16be'; data = data.subarray(2); } else if (enc === 1 && data[0] === 0xFF && data[1] === 0xFE) data = data.subarray(2);
         out[id] = new TextDecoder(label).decode(data).replace(/\0/g, ' ').trim();
       }
+      if (id === 'APIC' && !out.cover && fs > 16) {
+        const end = p + 10 + fs, enc = b[p + 10]; let q = p + 11; while (q < end && b[q] !== 0) q++;
+        let mime = new TextDecoder('latin1').decode(b.subarray(p + 11, q)).toLowerCase() || 'image/jpeg'; if (!mime.includes('/')) mime = 'image/' + (mime === 'jpg' ? 'jpeg' : mime);
+        q += 2;
+        if (enc === 1 || enc === 2) { while (q + 1 < end && !(b[q] === 0 && b[q + 1] === 0)) q += 2; q += 2; } else { while (q < end && b[q] !== 0) q++; q++; }
+        if (q < end) out.cover = URL.createObjectURL(new Blob([b.slice(q, end)], {type: mime}));
+      }
       p += 10 + fs;
     }
-    return {title: out.TIT2, artist: out.TPE1, album: out.TALB};
+    return {title: out.TIT2, artist: out.TPE1, album: out.TALB, cover: out.cover};
   } catch { return {}; }
 }
 const cacheKey = tr => 'stellar-lrc:' + [tr.meta && tr.meta.title || tr.name, tr.meta && tr.meta.artist || '', Math.round(tr.buffer ? tr.buffer.duration : 0)].join('|').toLowerCase();
@@ -959,7 +1008,7 @@ async function addFiles(fileList) {
   audio.sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name));
   const first = tracks.length; let paired = 0;
   for (const f of audio) { const l = lrcBy.get(base(f)), t = {name: cleanTitle(f.name), artist: '', lrc: '', file: f, buffer: null}; if (l) { t.lrc = await l.text(); paired++; } tracks.push(t); }
-  paintTracks(); sheet.hidden = true;
+  enrich(tracks.slice(first)); paintTracks(); sheet.hidden = true;
   toast(`Added ${audio.length} song${audio.length > 1 ? 's' : ''}${paired ? `, ${paired} with their own lyrics file` : ''}. The rest get lyrics from LRCLIB as they play.`);
   selectTrack(first, true);
 }
@@ -970,11 +1019,89 @@ stageEl.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTran
 stageEl.addEventListener('dragleave', e => { if (e.target === stageEl || e.target === canvas) $('#dropHint').hidden = true; });
 stageEl.addEventListener('drop', e => { e.preventDefault(); $('#dropHint').hidden = true; if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
 
+
+// ---------- Spotify-style library and lyrics view ----------
+function enrich(list) {
+  for (const t of list) if (t.file) readTags(t.file).then(tags => {
+    if (tags.cover) t.cover = tags.cover;
+    if (!t.meta) t.meta = {title: cleanTitle(tags.title || t.name), artist: cleanTitle(tags.artist || ''), album: tags.album || ''};
+    paintTracks(); if (tracks[cur] === t) { setLvTint(t); lvFor = null; updateUI(); }
+  });
+}
+const nameHue = s => Math.floor(hash([...String(s)].reduce((a, c) => a + c.charCodeAt(0), 0) * 0.37) * 360);
+const titleOf = t => (t.meta && t.meta.title) || t.name, artistOf = t => (t.meta && t.meta.artist) || t.artist || '';
+function coverStyle(t) { if (t.cover) return `background-image:url("${t.cover}")`; const hh = nameHue(titleOf(t)); return `background:linear-gradient(135deg,hsl(${hh} 55% 42%),hsl(${(hh + 55) % 360} 60% 20%))`; }
+function paintSide() {
+  const el = $('#sideList'); if (!el) return; el.innerHTML = '';
+  if (!tracks.length) { el.innerHTML = '<p class="hint" style="padding:8px">No songs yet. Use + to add songs from this computer.</p>'; return; }
+  tracks.forEach((t, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'st'; b.setAttribute('aria-current', String(i === cur));
+    const c = document.createElement('span'); c.className = 'cover'; c.setAttribute('style', coverStyle(t)); if (!t.cover) c.textContent = titleOf(t).trim().charAt(0).toUpperCase();
+    const n = document.createElement('span'); n.className = 'n';
+    const tt = document.createElement('span'); tt.className = 't'; tt.textContent = (i === cur && playing ? '▶ ' : '') + titleOf(t);
+    const aa = document.createElement('span'); aa.className = 'a'; aa.textContent = artistOf(t) || (t.loading ? 'Loading' : ' '); n.append(tt, aa);
+    const d = document.createElement('span'); d.className = 'd'; d.textContent = t.buffer ? fmt(t.buffer.duration) : '';
+    b.append(c, n, d); b.addEventListener('click', () => selectTrack(i, true)); el.appendChild(b);
+  });
+}
+$('#sideAdd').addEventListener('click', () => $('#songFile').click());
+$('#engChip').addEventListener('click', () => { S.roman = !S.roman; save(); reparse(); paintControls(); });
+
+const lv = $('#lyricView'), lvInner = $('#lvInner'); let lvFor = null, lvState = '', lvUserScroll = 0, lvPlaying = null;
+for (const ev of ['wheel', 'touchmove']) lv.addEventListener(ev, () => { lvUserScroll = performance.now(); }, {passive: true});
+function setLvTint(t) {
+  if (!t) return; const hh = nameHue(titleOf(t)); lv.style.setProperty('--lvbg', `hsla(${hh},45%,13%,.74)`);
+  if (!t.cover) return;
+  const img = new Image(); img.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 8, 8);
+    const d = x.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, bb = 0; for (let k = 0; k < d.length; k += 4) { r += d[k]; gg += d[k + 1]; bb += d[k + 2]; }
+    const n = d.length / 4, f = 0.42; if (tracks[cur] === t) lv.style.setProperty('--lvbg', `rgba(${Math.round(r / n * f)},${Math.round(gg / n * f)},${Math.round(bb / n * f)},.8)`); } catch {} };
+  img.src = t.cover;
+}
+function buildLyricView() {
+  lvFor = lines; lvState = ''; lvInner.innerHTML = ''; const t = tracks[cur];
+  const meta = document.createElement('div'); meta.className = 'lv-meta'; meta.textContent = t ? [titleOf(t), artistOf(t)].filter(Boolean).join('  ·  ') : ''; lvInner.appendChild(meta);
+  if (!lines.length) {
+    const e = document.createElement('div'); e.className = 'lv-empty';
+    e.textContent = !t ? 'Add a song to get started.' : t.loading ? 'Loading the song...' : /Finding/.test($('#syncPill').textContent) ? 'Looking for lyrics...' : 'No lyrics for this song yet.';
+    if (t && !t.loading) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.textContent = 'Find or paste lyrics'; b.addEventListener('click', () => openSheet('Lyrics')); e.appendChild(b); }
+    lvInner.appendChild(e); return;
+  }
+  lines.forEach((l, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ln' + (l.text ? '' : ' gap');
+    if (!l.text) b.textContent = '♪ ♪ ♪';
+    else { const ws = l.text.split(/\s+/); ws.forEach((w, j) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w + (j < ws.length - 1 ? ' ' : ''); b.appendChild(s); }); }
+    b.addEventListener('click', () => { lvUserScroll = 0; seek(Math.max(0, l.t - 0.05)); if (!playing) play(); });
+    lvInner.appendChild(b);
+  });
+  const src = t && (t.lrc || '').match(/LRCLIB #\d+/), synced = t && /auto-synced[^\]]*/.exec(t.lrc || '');
+  const cr = document.createElement('div'); cr.className = 'lv-credit';
+  cr.textContent = [src ? 'Lyrics from LRCLIB' : 'Your lyrics', synced ? synced[0].replace(/,.*$/, '') : '', S.roman ? 'shown in English letters' : ''].filter(Boolean).join('  ·  ');
+  lvInner.appendChild(cr);
+}
+function tickLyricView() {
+  const on = S.view === 'list'; if (lv.hidden === on) { lv.hidden = !on; lvFor = null; } if (!on) return;
+  if (lvPlaying !== playing) { lvPlaying = playing; paintSide(); }
+  if (lvFor !== lines || (!lines.length && lvInner.dataset.k !== $('#syncPill').textContent + (tracks[cur] && tracks[cur].loading))) { lvInner.dataset.k = $('#syncPill').textContent + (tracks[cur] && tracks[cur].loading); buildLyricView(); }
+  if (!lines.length) return;
+  const t = now(), idx = lineAt(t); let wOn = 0;
+  if (idx >= 0 && lines[idx].text) { const l = lines[idx];
+    if (l.words) wOn = l.words.filter(w => w.t <= t + LEAD).length;
+    else { const span = Math.max(0.3, Math.min(l.end - l.t, 0.6 + l.text.length * 0.11) * 0.95); wOn = Math.ceil(clamp((t - l.t + LEAD) / span, 0, 1) * l.text.split(/\s+/).length); } }
+  const st = idx + ':' + wOn; if (st === lvState) return;
+  const prevIdx = lvState ? +lvState.split(':')[0] : -9; lvState = st;
+  const els = lvInner.querySelectorAll('.ln');
+  els.forEach((el, i) => { el.classList.toggle('past', i < idx); el.classList.toggle('now', i === idx); });
+  if (idx >= 0 && els[idx]) {
+    [...els[idx].children].forEach((s, j) => s.classList.toggle('on', j < wOn));
+    if (prevIdx !== idx && performance.now() - lvUserScroll > 3000) lv.scrollTo({top: Math.max(0, els[idx].offsetTop - lv.clientHeight * 0.36), behavior: RM ? 'auto' : 'smooth'});
+  } else if (idx < 0 && prevIdx !== idx && performance.now() - lvUserScroll > 3000) lv.scrollTo({top: 0, behavior: 'auto'});
+}
+
 // ---------- tracks ----------
 async function selectTrack(i, autoplay) {
   if (i < 0 || i >= tracks.length) return;
   setSyncPill(''); $('#qResults').innerHTML = '';
-  stopAll(); cur = i; const tr = tracks[i]; buffer = null; lines = []; curIdx = -2; lastBeatT = -1; intervals = [];
+  stopAll(); cur = i; const tr = tracks[i]; setLvTint(tr); buffer = null; lines = []; curIdx = -2; lastBeatT = -1; intervals = [];
   lyricsText.value = tr.lrc || ''; updateUI(); paintTracks();
   if (!tr.buffer) { tr.loading = true; updateUI();
     try { tr.buffer = tr.spec ? await renderDemo(tr.spec) : tr.url ? await ensureAC().decodeAudioData(await (async () => { const r = await fetch(tr.url); if (!r.ok) throw new Error('missing'); return r.arrayBuffer(); })()) : await ensureAC().decodeAudioData(await tr.file.arrayBuffer()); }
@@ -985,6 +1112,7 @@ async function selectTrack(i, autoplay) {
 }
 function addDemos() { for (const d of [...BUILTIN, ...DEMOS]) if (!tracks.some(t => t.name === d.name)) tracks.push({name: d.name, artist: d.artist, lrc: d.lrc, spec: d.spec, url: d.url, q: d.q, buffer: null}); paintTracks(); }
 function paintTracks() {
+  paintSide();
   const el = $('#trackList'); el.innerHTML = '';
   if (!tracks.length) { el.innerHTML = '<p class="hint">No songs yet. Add songs from this device, or add the demo songs.</p>'; return; }
   tracks.forEach((t, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'tr'; b.setAttribute('aria-current', String(i === cur));
@@ -999,7 +1127,7 @@ function paintTracks() {
 const lyricsText = $('#lyricsText'), seekEl = $('#seek'), sheet = $('#sheet');
 let dragging = false, lastCur = '', lastBpm = '';
 const fmt = s => { s = Math.max(0, s || 0); return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); };
-function updateUI() { const tr = tracks[cur]; $('#nowTitle').textContent = !tr ? 'No song loaded' : (tr.loading ? `Loading ${tr.name}` : tr.name);
+function updateUI() { const tr = tracks[cur]; $('#nowTitle').textContent = !tr ? 'No song loaded' : (tr.loading ? `Loading ${titleOf(tr)}` : titleOf(tr));
   $('#playIcon').innerHTML = playing ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="currentColor"/>' : '<path d="M7 4.5v15l13-7.5z" fill="currentColor"/>'; $('#playBtn').setAttribute('aria-label', playing ? 'Pause' : 'Play');
   seekEl.max = String(dur() || 1); $('#durTime').textContent = fmt(dur()); }
 function tickUI() { const t = now(), s = fmt(t); if (s !== lastCur) { $('#curTime').textContent = s; lastCur = s; } if (!dragging) seekEl.value = String(t);
@@ -1032,7 +1160,7 @@ $('#lyricsBtn').addEventListener('click', () => openSheet('Lyrics')); $('#plBtn'
 $('#closeSheet').addEventListener('click', () => sheet.hidden = true); sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
 $('#addSongs').addEventListener('click', () => $('#songFile').click());
 $('#songFile').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; if (!files.length) return; const first = tracks.length;
-  for (const f of files) tracks.push({name: f.name.replace(/\.[^.]+$/, ''), artist: '', lrc: '', file: f, buffer: null}); paintTracks(); toast(files.length === 1 ? `Added ${files[0].name}` : `Added ${files.length} songs`); sheet.hidden = true; selectTrack(first, true); });
+  for (const f of files) tracks.push({name: cleanTitle(f.name), artist: '', lrc: '', file: f, buffer: null}); enrich(tracks.slice(first)); paintTracks(); toast(files.length === 1 ? `Added ${files[0].name}` : `Added ${files.length} songs`); sheet.hidden = true; selectTrack(first, true); });
 $('#demoBtn').addEventListener('click', () => { const n = tracks.length; addDemos(); if (cur < 0 && tracks.length) selectTrack(0, false); toast(tracks.length > n ? 'Demo songs added' : 'The demo songs are already in the playlist'); });
 $('#applyLyrics').addEventListener('click', () => { const tr = tracks[cur]; if (!tr) return toast('Add a song first.'); tr.lrc = lyricsText.value; tr.synced = false; lines = parseLyrics(tr.lrc, dur()); curIdx = -2; sheet.hidden = true; cacheSet(tr, tr.lrc);
   toast(lines.length ? `Lyrics applied: ${lines.filter(l => l.text).length} lines` : 'No lyrics found. Paste some lines first.');
@@ -1059,6 +1187,7 @@ $('#copyLrc').addEventListener('click', () => { const txt = lyricsText.value; if
 function chips(el, items, get, set) { el.innerHTML = ''; for (const [id, label] of items) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.id = id; b.addEventListener('click', () => { set(id); save(); paintControls(); }); el.appendChild(b); }
   return () => { for (const b of el.children) b.setAttribute('aria-pressed', String(b.dataset.id === String(get()))); }; }
 const painters = [
+  chips($('#viewChips'), [['list', 'Lyrics'], ['sky', 'Sky']], () => S.view, v => { S.view = v; }),
   chips($('#styleChips'), STYLES, () => S.style, v => { S.style = v; if (v !== 'auto') curStyle = v; }),
   chips($('#vizChips'), VIZ, () => S.viz, v => S.viz = v),
   chips($('#qualChips'), [['cine', 'Cinematic'], ['lite', 'Lite']], () => S.quality, v => S.quality = v),
@@ -1069,7 +1198,8 @@ const fxEl = $('#fxChips');
 for (const [key, label] of [['lines', 'Constellations'], ['names', 'Star names'], ['cam', 'Camera drift'], ['intro', 'Song intro card']]) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = label; b.dataset.key = key; b.addEventListener('click', () => { S[key] = !S[key]; save(); paintControls(); }); fxEl.appendChild(b); }
 const swEl = $('#swatches');
 for (const [id, P] of Object.entries(SCENES)) { const b = document.createElement('button'); b.type = 'button'; b.className = 'swatch'; b.dataset.id = id; b.title = P.label; b.setAttribute('aria-label', P.label); b.style.background = `radial-gradient(circle at 35% 35%, ${P.accent} 0 18%, ${P.bg[1]} 20%, ${P.bg[0]})`; b.addEventListener('click', () => { S.scene = id; mwC = null; nebC = null; save(); paintControls(); }); swEl.appendChild(b); }
-function paintControls() { for (const p of painters) p(); for (const b of fxEl.children) b.setAttribute('aria-pressed', String(!!S[b.dataset.key])); for (const b of swEl.children) b.setAttribute('aria-pressed', String(b.dataset.id === S.scene)); }
+function paintControls() {
+  $('#engChip').setAttribute('aria-pressed', String(!!S.roman)); for (const p of painters) p(); for (const b of fxEl.children) b.setAttribute('aria-pressed', String(!!S[b.dataset.key])); for (const b of swEl.children) b.setAttribute('aria-pressed', String(b.dataset.id === S.scene)); }
 paintControls();
 if (document.fonts) { for (const f of ['40px "Space Grotesk"', '40px "Noto Sans Telugu"', '40px "Inter"']) document.fonts.load(f).then(() => { fontGen++; layoutCache.clear(); }).catch(() => {}); document.fonts.ready.then(() => { fontGen++; layoutCache.clear(); }); }
 resize(); addDemos(); selectTrack(0, false); updateUI();

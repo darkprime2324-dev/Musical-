@@ -6,7 +6,9 @@ Music projects, lyrics and the **Stellar** lyric player.
 
 `app/musical-stage.html` is a single-file web app. Open it in a browser (Chrome, Edge, Firefox or Safari), add a song and its lyrics, and the words are animated across a night sky of real constellations, the Milky Way, tonight's moon phase, nebulae and auroras, all reacting to the music.
 
-- **Lyric styles**: Constellation, Orbit, Comet, Supernova, Star map, Eclipse, Nebula, Telemetry.
+- **Spotify-style player**: a library sidebar with cover art read from your MP3s, and a Lyrics view where the whole song scrolls by itself, the current line lights up word by word, and clicking any line jumps the song there. The background takes its colour from the cover.
+- **English letters** for Telugu and Hindi lyrics, on by default (toggle in the bottom bar).
+- **Sky view** with animated lyric styles: Constellation, Orbit, Comet, Supernova, Star map, Eclipse, Nebula, Telemetry.
 - **Skies**: Observatory, Nebula, Aurora, Lunar, Warp.
 - **Lyrics**: fetched per song from LRCLIB and auto-synced to your recording; or paste plain text, `.lrc` with `[mm:ss.xx]` line times, or `<mm:ss.xx>` word times. Tap-to-sync times lyrics by hand.
 - **Languages**: Telugu and other Indic scripts render with proper conjuncts (Noto Sans Telugu is loaded from Google Fonts).
