@@ -6,6 +6,7 @@ Music projects, lyrics and the **Stellar** lyric player.
 
 `app/musical-stage.html` is a single-file web app. Open it in a browser (Chrome, Edge, Firefox or Safari), add a song and its lyrics, and the words are animated across a night sky of real constellations, the Milky Way, tonight's moon phase, nebulae and auroras, all reacting to the music.
 
+- **Free music built in**: real public-domain recordings from 1905 to 1917 with word-synced lyrics, streamed from Wikimedia Commons, ready the moment the page opens (see [Built-in music](#built-in-music-public-domain)).
 - **Your own music library, no account needed**: your songs, your playlists and your lyrics library live in your browser. Spotify is optional (see [Your own library](#your-own-library-no-spotify-needed)).
 - **Spotify-style player**: a library sidebar with cover art read from your MP3s, and a Lyrics view where the whole song scrolls by itself, the current line lights up word by word, and clicking any line jumps the song there. The background takes its colour from the cover.
 - **English letters** for Telugu and Hindi lyrics, on by default (toggle in the bottom bar).
@@ -45,9 +46,25 @@ Commit the rebuilt `app/musical-stage.html` with your source changes so the site
 | `web/src/lyrics/` | LRC parsing, English letters for Telugu and Hindi, MP3 tags, LRCLIB lookup, auto-sync, the lyrics library |
 | `web/src/spotify/` | Spotify login (PKCE), playlist import, in-page player, follow mode |
 | `web/src/player/` | The library: selecting songs, folders, tap-to-sync, nudging, playlists, backup, keeping songs in the browser |
+| `web/src/catalog/` | The built-in public-domain songs and their timed lyrics |
 | `web/src/core/` | Settings, shared state, types, helpers |
 
 The engine keeps its state in plain objects that the canvas reads every frame; React components subscribe to small signals and re-render when the engine reports a change.
+
+## Built-in music (public domain)
+
+Stellar opens with real songs already in the library, so there is something to play before you add anything:
+
+| Song | Performer | Recorded | Lyrics |
+| --- | --- | --- | --- |
+| Shine On, Harvest Moon | Ada Jones & Billy Murray | 1909 | Word-synced, with the recording's spoken scene |
+| Take Me Out to the Ball Game | Edward Meeker | 1908 | Word-synced, with the Edison announcement |
+| In the Good Old Summertime | John Philip Sousa's Band | 1905 | Instrumental |
+
+- **Free to use**: the recordings are in the public domain (made before 1925), and so are the songs and their words. That is why their lyrics can ship in this repository (`web/src/catalog/lyrics.ts`); no copyrighted lyrics are added.
+- **Streamed, not stored**: the audio plays straight from Wikimedia Commons (MP3 first so every browser can play it, the original Ogg as a fallback). It needs an internet connection and adds nothing to the repository. Beat-reactive visuals work because Commons allows any page to read the audio.
+- **Word-synced**: the lyrics were timed to these exact recordings with speech recognition, word by word (`tools/fit_lyrics.py`). The recordings include their original spoken parts, like the Edison announcement and the 1909 comedy dialogue, and the lyrics show those too.
+- **Adding a song**: it must be public domain or CC0/CC BY, both the recording and the words, and hosted on Commons. Time it with `python3 tools/fit_lyrics.py song.ogg words.txt -o song.lrc`, check the per-line report, and add an entry to `web/src/catalog/index.ts`. Very old wax cylinders (1890s) are usually too noisy to time automatically; the tool's report shows that.
 
 ## Your own library (no Spotify needed)
 
@@ -129,7 +146,7 @@ Then open the folder in the player. `--force` redoes existing files, `--no-sync`
 | `exports/` | Finished mixes and masters |
 | `samples/` | Samples, loops and one-shots |
 | `lyrics/` | Your own lyrics and `.lrc` files |
-| `tools/` | `lyrics_library.py` (folder lyrics + auto-sync), `align.py` (speech-recognition timing) |
+| `tools/` | `lyrics_library.py` (folder lyrics + auto-sync), `align.py` (speech-recognition timing), `fit_lyrics.py` (word timing for known lyrics) |
 | `artwork/` | Cover art and visuals |
 
 ## Large files

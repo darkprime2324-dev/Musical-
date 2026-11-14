@@ -127,7 +127,7 @@ function SongList() {
       {l && !order.length && <p className="hint">{l.name} is empty. Open All songs and use Add to on any song.</p>}
       {order.map(i => {
         const t = app.tracks[i], k = trackKey(t), ln = parseLyrics(t.lrc || lyricsFor(t)?.lrc || '', 0).filter(x => x.text).length;
-        const where = t.missing ? 'file needed' : t.sp ? 'plays in Spotify' : '';
+        const where = t.missing ? 'file needed' : t.sp ? 'plays in Spotify' : t.credit ? `free music, ${t.credit.license.toLowerCase()}` : '';
         return (
           <div key={k + i} className="tr" aria-current={String(i === app.cur) as 'true' | 'false'} role="button" tabIndex={0}
             onClick={() => void selectTrack(i, true)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) void selectTrack(i, true); }}>

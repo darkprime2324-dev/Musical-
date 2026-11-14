@@ -27,7 +27,7 @@ export const lyricsCount = () => lib.size;
 export const lyricsFor = (t: Track) => lib.get(trackSongKey(t));
 
 // The demo songs carry their own lyrics; built-in lyrics are not part of your library.
-const keepable = (t: Track) => !t.spec && !!t.meta && !!(t.lrc || '').trim() && !!norm(trackTitle(t));
+const keepable = (t: Track) => !t.spec && !t.credit && !!t.meta && !!(t.lrc || '').trim() && !!norm(trackTitle(t));
 
 export async function loadLyricsLibrary() {
   try { for (const e of await getAll<LyricsEntry>(LYRICS)) lib.set(e.key, e); } catch { /* storage unavailable */ }

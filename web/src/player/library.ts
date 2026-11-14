@@ -15,6 +15,7 @@ import { forgetSong, storeSongs } from './persist';
 import { dropKey, rekey, stepIndex, trackKey } from './playlists';
 import { firstArtist, lyricsFor, norm } from '../lyrics/store';
 import { newId } from '../core/db';
+import { CATALOG } from '../catalog';
 import type { LrclibRecord } from '../core/types';
 
 export const titleOf = (t: Track) => t.meta?.title || t.name;
@@ -66,10 +67,14 @@ export async function selectTrack(i: number, autoplay: boolean): Promise<void> {
     tr.loading = true; emit();
     try {
       if (tr.spec) tr.buffer = await renderDemo(tr.spec);
-      else if (tr.url) { const r = await fetch(tr.url); if (!r.ok) throw new Error('missing'); tr.buffer = await ensureAC().decodeAudioData(await r.arrayBuffer()); }
+      else if (tr.url) {
+        const get = async (u: string) => { const r = await fetch(u); if (!r.ok) throw new Error('missing'); return ensureAC().decodeAudioData(await r.arrayBuffer()); };
+        try { tr.buffer = await get(tr.url); } catch (e) { if (!tr.alt) throw e; tr.buffer = await get(tr.alt); }
+      }
       else tr.buffer = await ensureAC().decodeAudioData(await tr.file!.arrayBuffer());
     } catch {
       tr.loading = false;
+      if (tr.credit) { emit(); if (app.cur === i) toast(`${tr.name} streams from Wikimedia Commons, which could not be reached. Check the internet connection and press play again.`); return; }
       if (tr.url) { app.tracks.splice(i, 1); if (app.tracks.length) void selectTrack(Math.min(i, app.tracks.length - 1), autoplay); else { app.cur = -1; emit(); } return; }
       emit(); toast(`${tr.name} could not be played. Try an MP3, M4A, WAV or OGG file.`); return;
     }
@@ -80,7 +85,7 @@ export async function selectTrack(i: number, autoplay: boolean): Promise<void> {
 }
 
 async function afterLoad(tr: Track, i: number) {
-  if (tr.spec) return;
+  if (tr.spec || tr.credit) return;   // demo and built-in songs come with their lyrics
   if (!tr.meta) { const tags = tr.q ? { ...tr.q } : (tr.file ? await readTags(tr.file) : {}); tr.meta = { title: cleanTitle(tags.title || tr.name), artist: cleanTitle(tags.artist || ''), album: tags.album || '' }; }
   if (app.cur !== i) return;
   app.query = { title: tr.meta.title, artist: tr.meta.artist };
@@ -95,6 +100,8 @@ async function afterLoad(tr: Track, i: number) {
 }
 
 export function addDemos() {
+  for (const c of CATALOG) if (!app.tracks.some(t => t.name === c.name && t.credit))
+    app.tracks.push({ name: c.name, artist: c.artist, lrc: c.lrc, url: c.url, alt: c.alt, q: c.q, meta: { ...c.q }, credit: c.credit, synced: true, buffer: null });
   for (const d of [...BUILTIN.map(b => ({ ...b, spec: undefined })), ...DEMOS.map(d => ({ ...d, url: undefined, q: undefined }))])
     if (!app.tracks.some(t => t.name === d.name)) app.tracks.push({ name: d.name, artist: d.artist, lrc: d.lrc, spec: d.spec, url: d.url, q: d.q, buffer: null });
   emit();
