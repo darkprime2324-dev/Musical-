@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { Line, LrclibRecord, SheetName, SpotifyPlaylist, Track } from './types';
+import type { Line, LrclibRecord, Playlist, SheetName, SpotifyPlaylist, Track } from './types';
 
 // The engine keeps its state in plain mutable objects (the canvas reads them 60 times a second).
 // React components subscribe to small "signals" and re-render when the engine says something changed.
@@ -21,6 +21,8 @@ export const emit = () => uiSignal.emit();
 export type SpStatus = '' | 'reading' | 'mix' | 'mixUnknown' | 'notYours';
 export const app = {
   tracks: [] as Track[],
+  lists: [] as Playlist[],     // your own playlists
+  listId: null as string | null, // playlist shown in the sidebar and played in order; null = all songs
   cur: -1,
   lines: [] as Line[],
   buffer: null as AudioBuffer | null,

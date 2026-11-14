@@ -1,11 +1,14 @@
-import { useEffect, useRef } from 'react';
-import { app, emit, toast, uiSignal, useSignal } from '../core/store';
+import { useEffect, useRef, useState } from 'react';
+import { app, emit, openSheet, toast, uiSignal, useSignal } from '../core/store';
 import { S, VIZ, save } from '../core/settings';
 import { fmt } from '../core/util';
 import { dur } from '../audio/engine';
 import { parseLyrics } from '../lyrics/parse';
 import { searchPanel } from '../lyrics/lrclib';
-import { addDemos, addFiles, applyLyrics, coverBackground, removeTrack, runAutoSync, selectTrack, setRoman, startSync, useResult } from '../player/library';
+import { addDemos, addFiles, applyLyrics, artistOf, coverBackground, removeTrack, runAutoSync, selectTrack, setRoman, startSync, titleOf, useResult } from '../player/library';
+import { createList, currentList, deleteList, inList, queue, renameList, showList, toggleInList, trackKey } from '../player/playlists';
+import { copyWaitingList, exportLibrary, importLibrary, waitingSongs } from '../player/backup';
+import { download, forgetLyrics, lrcFileName, lyricsFor, lyricsList, lyricsSource, norm, trackSongKey } from '../lyrics/store';
 import { isConnected, spClientId, spDisconnect, spImport, spLogin, spRedirect, spSaveClient } from '../spotify/spotify';
 import { Chips } from './Chips';
 
@@ -95,38 +98,146 @@ function MyPlaylists() {
   );
 }
 
-function PlaylistPanel({ show }: { show: boolean }) {
-  const link = useRef<HTMLInputElement>(null), folder = useRef<HTMLInputElement>(null);
-  useEffect(() => { folder.current?.setAttribute('webkitdirectory', ''); }, []);
+function PlaylistBar() {
+  const l = currentList(), name = useRef<HTMLInputElement>(null), cur = app.tracks[app.cur];
+  useEffect(() => { if (name.current && l) name.current.value = l.name; }, [l, l?.name]);
   return (
-    <div id="panPlaylist" hidden={!show}>
-      <div className="find">
+    <>
+      <div className="row" role="tablist" aria-label="Playlists">
+        <button type="button" role="tab" className="chip" aria-selected={!l} aria-pressed={!l} onClick={() => showList(null)}>All songs</button>
+        {app.lists.map(p => <button key={p.id} type="button" role="tab" className="chip" aria-selected={l === p} aria-pressed={l === p} onClick={() => showList(p.id)}>{p.name}</button>)}
+        <button type="button" className="chip" id="newList" onClick={() => { const p = createList(); showList(p.id); setTimeout(() => name.current?.select(), 0); }}>+ New playlist</button>
+      </div>
+      {l && (
+        <div className="findrow">
+          <input ref={name} type="text" aria-label="Playlist name" defaultValue={l.name} onBlur={e => renameList(l, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+          {cur && <button className="btn" type="button" onClick={() => toggleInList(l, cur)}>{inList(l, cur) ? 'Take out' : 'Add'} the current song</button>}
+          <button className="btn" type="button" onClick={() => deleteList(l)}>Delete playlist</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SongList() {
+  const l = currentList(), order = queue();
+  return (
+    <div className="tracks" id="trackList">
+      {!app.tracks.length && <p className="hint">No songs yet. Add songs from this device, or add the demo songs.</p>}
+      {l && !order.length && <p className="hint">{l.name} is empty. Open All songs and use Add to on any song.</p>}
+      {order.map(i => {
+        const t = app.tracks[i], k = trackKey(t), ln = parseLyrics(t.lrc || lyricsFor(t)?.lrc || '', 0).filter(x => x.text).length;
+        const where = t.missing ? 'file needed' : t.sp ? 'plays in Spotify' : '';
+        return (
+          <div key={k + i} className="tr" aria-current={String(i === app.cur) as 'true' | 'false'} role="button" tabIndex={0}
+            onClick={() => void selectTrack(i, true)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) void selectTrack(i, true); }}>
+            <div className="n"><b>{(i === app.cur && app.playing ? '▶ ' : '') + titleOf(t)}</b><small>{[artistOf(t), where, ln ? `${ln} lyric lines` : 'no lyrics yet'].filter(Boolean).join(' · ')}</small></div>
+            {app.lists.length > 0 && !l && (
+              <select className="addto" aria-label={`Add ${titleOf(t)} to a playlist`} value="" onClick={e => e.stopPropagation()}
+                onChange={e => { const p = app.lists.find(x => x.id === e.target.value); if (p) toggleInList(p, t); }}>
+                <option value="">Add to...</option>
+                {app.lists.map(p => <option key={p.id} value={p.id}>{(inList(p, t) ? '✓ ' : '') + p.name}</option>)}
+              </select>
+            )}
+            {l
+              ? <button type="button" className="rm" aria-label={`Take ${titleOf(t)} out of ${l.name}`} onClick={e => { e.stopPropagation(); toggleInList(l, t); }}>Take out</button>
+              : <button type="button" className="rm" aria-label={`Remove ${titleOf(t)}`} onClick={e => { e.stopPropagation(); removeTrack(i); }}>Remove</button>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function WaitingSongs() {
+  const w = waitingSongs(), files = w.filter(t => t.missing).length, sp = w.length - files;
+  if (!w.length) return null;
+  return (
+    <div className="set">
+      <span className="label">Songs without a file here</span>
+      <p className="hint">{[files ? `${files} song${files === 1 ? '' : 's'} from a backup still need their file` : '', sp ? `${sp} song${sp === 1 ? '' : 's'} only play through Spotify` : ''].filter(Boolean).join('; ')}.
+        Open a music folder (or add the songs): any file with the same title and artist takes the song's place, keeping its lyrics and playlists, with full beat-reactive visuals and auto-sync.</p>
+      <div className="row"><button className="btn" type="button" onClick={copyWaitingList}>Copy the list of songs to find</button></div>
+    </div>
+  );
+}
+
+function LyricsLibrary() {
+  const [q, setQ] = useState(''), [all, setAll] = useState(false);
+  const list = lyricsList(), nq = norm(q), hits = nq ? list.filter(e => norm(e.title + ' ' + e.artist).includes(nq)) : list, shown = all ? hits : hits.slice(0, 12);
+  const open = (key: string) => {
+    const i = app.tracks.findIndex(t => trackSongKey(t) === key);
+    if (i >= 0) void selectTrack(i, false).then(() => openSheet('Lyrics'));
+  };
+  return (
+    <div className="set">
+      <span className="label">Lyrics library</span>
+      <p className="hint">{list.length ? `${list.length} lyric sheet${list.length === 1 ? '' : 's'} kept in this browser` : 'No lyrics kept yet'}: every song's lyrics, whether they came from LRCLIB, a .lrc file, or you pasted, wrote or tap-synced them. Any copy of the same song (your file, Spotify, another rip) finds them again, even offline.</p>
+      {list.length > 0 && <div className="findrow"><input type="text" placeholder="Search your lyrics library" aria-label="Search your lyrics library" value={q} onChange={e => setQ(e.target.value)} /></div>}
+      <div className="tracks">
+        {shown.map(e => {
+          const src = lyricsSource(e.lrc), here = app.tracks.some(t => trackSongKey(t) === e.key);
+          return (
+            <div key={e.key} className="tr" role={here ? 'button' : undefined} tabIndex={here ? 0 : undefined} onClick={() => here && open(e.key)} onKeyDown={ev => { if (here && ev.key === 'Enter' && ev.target === ev.currentTarget) open(e.key); }}>
+              <div className="n"><b>{e.title}</b><small>{[e.artist, src.label, here ? '' : 'song not in library'].filter(Boolean).join(' · ')}</small></div>
+              <span className={'badge' + (src.timed ? ' ok' : '')}>{src.timed ? 'Timed' : 'Text only'}</span>
+              <button type="button" className="rm" aria-label={`Download lyrics for ${e.title}`} onClick={ev => { ev.stopPropagation(); download(lrcFileName(e), e.lrc); }}>.lrc</button>
+              <button type="button" className="rm" aria-label={`Delete lyrics for ${e.title}`} onClick={ev => { ev.stopPropagation(); void forgetLyrics(e.key); }}>Delete</button>
+            </div>
+          );
+        })}
+        {hits.length > shown.length && <button className="btn" type="button" onClick={() => setAll(true)}>Show all {hits.length}</button>}
+        {nq && !hits.length && <p className="hint">No lyrics match.</p>}
+      </div>
+    </div>
+  );
+}
+
+function SpotifySection() {
+  const link = useRef<HTMLInputElement>(null);
+  const open = !!app.sp.status || app.sp.connected;
+  return (
+    <details className="spsetup" open={open || undefined}>
+      <summary>Spotify (optional)</summary>
+      <div className="find" style={{ marginTop: 8 }}>
+        <p className="hint">Bring a Spotify playlist's song list into your library. Then open your music folder: each song you have as a file plays from the file instead, and nothing depends on Spotify any more.</p>
         <div className="findrow">
           <input id="spLink" ref={link} type="text" placeholder="Paste a Spotify playlist, album or song link" aria-label="Spotify link" onKeyDown={e => { if (e.key === 'Enter') void spImport(link.current!.value); }} />
-          <button className="btn primary" id="spGo" type="button" onClick={() => void spImport(link.current!.value)}>Add from Spotify</button>
+          <button className="btn" id="spGo" type="button" onClick={() => void spImport(link.current!.value)}>Add from Spotify</button>
         </div>
         <SpotifyStatus />
         <MyPlaylists />
       </div>
-      <p className="hint">Songs play in order and move to the next one automatically. Open a whole folder at once: a <code>.lrc</code> file with the same name as a song is used as its lyrics, and songs without one look theirs up on LRCLIB. You can also drop files onto the sky.</p>
-      <div className="tracks" id="trackList">
-        {!app.tracks.length && <p className="hint">No songs yet. Add songs from this device, or add the demo songs.</p>}
-        {app.tracks.map((t, i) => {
-          const ln = parseLyrics(t.lrc || '', 0).filter(l => l.text).length;
-          return (
-            <button key={(t.sp?.uri || t.name) + i} type="button" className="tr" aria-current={String(i === app.cur) as 'true' | 'false'} onClick={() => void selectTrack(i, true)}>
-              <div className="n"><b>{(i === app.cur && app.playing ? '▶ ' : '') + t.name}</b><small>{(t.artist ? t.artist + ' · ' : '') + (ln ? `${ln} lyric lines` : 'no lyrics yet')}</small></div>
-              <span role="button" tabIndex={0} className="rm" aria-label={`Remove ${t.name}`} onClick={e => { e.stopPropagation(); removeTrack(i); }} onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); removeTrack(i); } }}>Remove</span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="row" style={{ marginTop: 10 }}>
+    </details>
+  );
+}
+
+function LibraryPanel({ show }: { show: boolean }) {
+  const folder = useRef<HTMLInputElement>(null), backup = useRef<HTMLInputElement>(null);
+  useEffect(() => { folder.current?.setAttribute('webkitdirectory', ''); }, []);
+  return (
+    <div id="panLibrary" hidden={!show} className="set">
+      <PlaylistBar />
+      <SongList />
+      <div className="row">
         <button className="btn primary" id="addSongs" type="button" onClick={() => document.getElementById('songFile')?.click()}>Add songs</button>
         <button className="btn" id="addFolder" type="button" onClick={() => folder.current?.click()}>Open a music folder</button>
-        <button className="btn" id="demoBtn" type="button" onClick={() => { const n = app.tracks.length; addDemos(); if (app.cur < 0 && app.tracks.length) void selectTrack(0, false); toast(app.tracks.length > n ? 'Demo songs added' : 'The demo songs are already in the playlist'); }}>Add demo songs</button>
+        <button className="btn" id="demoBtn" type="button" onClick={() => { const n = app.tracks.length; addDemos(); if (app.cur < 0 && app.tracks.length) void selectTrack(0, false); toast(app.tracks.length > n ? 'Demo songs added' : 'The demo songs are already in the library'); }}>Add demo songs</button>
         <input type="file" id="folderFile" ref={folder} multiple hidden onChange={e => { const f = e.target.files; if (f) void addFiles([...f]); e.target.value = ''; }} />
       </div>
+      <p className="hint">Your songs, playlists and lyrics live in this browser and work without any account. Songs play in order and move to the next one by themselves. Opening a whole folder pairs each song with a <code>.lrc</code> file of the same name; songs without one find theirs on LRCLIB or in your lyrics library. You can also drop files onto the sky.</p>
+      <WaitingSongs />
+      <LyricsLibrary />
+      <div className="set">
+        <span className="label">Backup</span>
+        <p className="hint">Save your song list, playlists and lyrics library in one small file, and import it on another browser or computer. The audio is not in it: open your music folder there and every song finds its file. The file holds lyrics, so keep it private and out of the repository.</p>
+        <div className="row">
+          <button className="btn" id="saveBackup" type="button" onClick={exportLibrary}>Save a backup</button>
+          <button className="btn" id="loadBackup" type="button" onClick={() => backup.current?.click()}>Import a backup</button>
+          <input type="file" ref={backup} accept=".json,application/json" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void importLibrary(f); }} />
+        </div>
+      </div>
+      <SpotifySection />
     </div>
   );
 }
@@ -173,7 +284,7 @@ function SettingsPanel({ show }: { show: boolean }) {
         <Chips id="letterChips" items={[['orig', 'As written'], ['roman', 'English letters']]} value={S.roman ? 'roman' : 'orig'} onPick={v => setRoman(v === 'roman')} />
         <span className="label">Auto-sync to the audio</span>
         <Chips id="syncChips" items={[['on', 'On'], ['off', 'Off']]} value={S.autosync ? 'on' : 'off'} onPick={v => { S.autosync = v === 'on'; }} />
-        <p className="hint" style={{ marginTop: 8 }}>Move the mouse to drift through the sky; hover a constellation to name it. Space plays and pauses, arrow keys skip 5 seconds, N and P change songs, F is full screen, L opens the playlist. Settings are remembered on this device.</p>
+        <p className="hint" style={{ marginTop: 8 }}>Move the mouse to drift through the sky; hover a constellation to name it. Space plays and pauses, arrow keys skip 5 seconds, N and P change songs, F is full screen, L opens your library. Settings are remembered on this device.</p>
       </div>
     </div>
   );
@@ -187,7 +298,7 @@ export function Sheet() {
       <div className="card gutter" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
         <h2 id="sheetTitle">{(which || 'Lyrics') + ' '}<button className="btn" id="closeSheet" type="button" onClick={close}>Close</button></h2>
         <LyricsPanel show={which === 'Lyrics'} />
-        <PlaylistPanel show={which === 'Playlist'} />
+        <LibraryPanel show={which === 'Library'} />
         <SettingsPanel show={which === 'Settings'} />
       </div>
     </div>

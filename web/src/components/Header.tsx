@@ -29,8 +29,8 @@ export function Header() {
         <span className="pill moon" id="moonPill">{`${MOON.name} · ${Math.round(MOON.lit * 100)}% lit`}</span>
         <span className={'pill' + (pill.ok ? ' on' : '')} id="syncPill" hidden={!pill.text}>{pill.text}</span>
       </div>
-      <button className="ico" id="plBtn" type="button" aria-label="Playlist" title="Playlist (L)"
-        onClick={() => { openSheet('Playlist'); if (isConnected() && !app.sp.mine) void spLoadMyPlaylists(); }}><IconPlaylist /></button>
+      <button className="ico" id="plBtn" type="button" aria-label="Library" title="Library: songs, playlists, lyrics (L)"
+        onClick={() => { openSheet('Library'); if (isConnected() && !app.sp.mine) void spLoadMyPlaylists(); }}><IconPlaylist /></button>
       <button className="ico" id="lyricsBtn" type="button" aria-label="Lyrics" title="Lyrics" onClick={() => openSheet('Lyrics')}><IconLyrics /></button>
       <button className="ico" id="fsBtn" type="button" aria-label="Full screen" title="Full screen (F)" onClick={toggleFullscreen}><IconFull /></button>
       <button className="ico" id="setBtn" type="button" aria-label="Settings" title="Settings" onClick={() => openSheet('Settings')}><IconSettings /></button>

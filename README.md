@@ -6,6 +6,7 @@ Music projects, lyrics and the **Stellar** lyric player.
 
 `app/musical-stage.html` is a single-file web app. Open it in a browser (Chrome, Edge, Firefox or Safari), add a song and its lyrics, and the words are animated across a night sky of real constellations, the Milky Way, tonight's moon phase, nebulae and auroras, all reacting to the music.
 
+- **Your own music library, no account needed**: your songs, your playlists and your lyrics library live in your browser. Spotify is optional (see [Your own library](#your-own-library-no-spotify-needed)).
 - **Spotify-style player**: a library sidebar with cover art read from your MP3s, and a Lyrics view where the whole song scrolls by itself, the current line lights up word by word, and clicking any line jumps the song there. The background takes its colour from the cover.
 - **English letters** for Telugu and Hindi lyrics, on by default (toggle in the bottom bar).
 - **Sky view** with eleven animated lyric styles. Pulsar, Meteor and Signal are timed to each word: a shock ring, a meteor strike or a spike on an oscilloscope trace lands the instant the word is sung. Also Constellation, Orbit, Comet, Supernova, Star map, Eclipse, Nebula, Telemetry.
@@ -41,16 +42,29 @@ Commit the rebuilt `app/musical-stage.html` with your source changes so the site
 | `web/src/components/` | React interface: header, library sidebar, stage, lyrics view, bottom bar, panels |
 | `web/src/sky/` | Canvas renderer: skies, constellations, the eight lyric styles, bloom and grain, frame loop |
 | `web/src/audio/` | Web Audio playback, beat and drop detection, the synthesized demo songs |
-| `web/src/lyrics/` | LRC parsing, English letters for Telugu and Hindi, MP3 tags, LRCLIB lookup, auto-sync |
+| `web/src/lyrics/` | LRC parsing, English letters for Telugu and Hindi, MP3 tags, LRCLIB lookup, auto-sync, the lyrics library |
 | `web/src/spotify/` | Spotify login (PKCE), playlist import, in-page player, follow mode |
-| `web/src/player/` | The library: selecting songs, folders, tap-to-sync, nudging |
+| `web/src/player/` | The library: selecting songs, folders, tap-to-sync, nudging, playlists, backup, keeping songs in the browser |
 | `web/src/core/` | Settings, shared state, types, helpers |
 
 The engine keeps its state in plain objects that the canvas reads every frame; React components subscribe to small signals and re-render when the engine reports a change.
 
-## Spotify playlists
+## Your own library (no Spotify needed)
 
-Paste a Spotify playlist, album or song link (Playlist -> *Add from Spotify*, or just paste anywhere on the page). Stellar reads the song list through Spotify's official Web API, shows the album covers, and loads each song's synced lyrics from LRCLIB, matched to the exact Spotify release by length.
+Spotify limits what apps can do: the app owner needs Premium, only your own playlists can be read, and its audio can't drive the visuals. Stellar's own library has none of those limits. Everything below works with no account and keeps working offline.
+
+- **Songs**: add files or open a whole music folder. They are kept in the browser (IndexedDB), with full beat-reactive visuals and auto-sync.
+- **Playlists**: the chips under *Your library* switch between *All songs* and your playlists; **+** makes a new one. Each song's **⋯** button adds it to a playlist, or moves it up and down inside one. On a phone, use Library (the list button, or `L`): choose a playlist, rename or delete it, and add songs with *Add to...*. Previous, next and auto-advance play in the order of the playlist on show.
+- **Lyrics library**: every song's lyrics are kept by title and artist: found on LRCLIB, opened from a `.lrc` file, pasted, written by you, tap-synced or nudged. Any copy of the same song (another rip, a Spotify entry, the same file on another computer) finds them again without going online. Library -> *Lyrics library* lets you search, open, download as `.lrc` or delete them. A sheet's timing fixes only carry over to a recording of the same length; otherwise auto-sync fits it again.
+- **Replace Spotify songs with your files**: songs imported from Spotify show as *Spotify* in the list. Open your music folder, and every file whose title and artist match (from its tags, or a file name like `Artist - Title.mp3`) takes that song's place. It keeps the lyrics and playlist spots, and plays from the file from then on. Library -> *Songs without a file here* -> *Copy the list of songs to find* gives you what's still missing.
+- **Backup and other computers**: Library -> *Save a backup* writes `stellar-library-YYYY-MM-DD.json` with your song list, playlists and lyrics library (no audio). On another browser, *Import a backup*: songs show as *File needed* until you open the music folder, and then each one finds its file by name and size. The backup holds lyrics, so keep it private; `.gitignore` keeps `stellar-library-*.json` out of this repository.
+
+## Spotify playlists (optional)
+
+To leave Spotify, import your playlists once (below), then open your music folder as described above.
+
+
+Paste a Spotify playlist, album or song link (Library -> *Spotify (optional)* -> *Add from Spotify*, or just paste anywhere on the page). Stellar reads the song list through Spotify's official Web API, shows the album covers, and loads each song's synced lyrics from LRCLIB, matched to the exact Spotify release by length.
 
 - **Spotify Premium**: songs play inside the Stellar page (Spotify Web Playback SDK).
 - **Any account**: play on your phone or the Spotify app; Stellar follows whatever Spotify is playing, switches songs with it and keeps the lyrics in time. It checks once a second while a Spotify song plays, less often when idle, and waits as long as Spotify asks whenever it says to slow down. Songs you play that aren't in your list are added automatically (Settings -> *Songs played in Spotify*).
@@ -64,7 +78,7 @@ Paste a Spotify playlist, album or song link (Playlist -> *Add from Spotify*, or
 
 **Spotify's rules for apps (since February 2026)**
 - The person who created the Spotify app (step 1) needs **Spotify Premium**, or Spotify switches the app off. Up to 5 people can use it; add them under *User Management*.
-- Apps can only read **playlists you own or collaborate on**. After connecting, the Playlist panel lists them under *Your playlists*. For anyone else's playlist or a Spotify-made mix, either play it in Spotify and let Stellar follow, or save a copy (open it, Ctrl+A, right-click, Add to playlist, New playlist).
+- Apps can only read **playlists you own or collaborate on**. After connecting, Library -> *Spotify (optional)* lists them under *Your playlists*. For anyone else's playlist or a Spotify-made mix, either play it in Spotify and let Stellar follow, or save a copy (open it, Ctrl+A, right-click, Add to playlist, New playlist).
 - Playing inside the page needs Premium; otherwise control playback from your Spotify app and the lyrics follow.
 - The login uses PKCE, so there is no secret in the page. It does not work inside the claude.ai preview; use the GitHub Pages site.
 

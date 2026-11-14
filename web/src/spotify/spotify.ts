@@ -3,6 +3,7 @@ import { S, save } from '../core/settings';
 import type { SpotifyPlaylist, SpotifyTrack, Track } from '../core/types';
 import { lsGet, lsSet } from '../core/util';
 import { selectTrack } from '../player/library';
+import { queue } from '../player/playlists';
 
 // Spotify: import playlists, play in the page (Premium) or follow playback in the Spotify app (any account).
 // Official Web API with the PKCE login flow, so no secret lives in the page. Audio never passes through
@@ -147,7 +148,7 @@ function spFollowHint() {
 export async function spPlay() {
   const t = spTrack(); if (!t) return;
   if (!spAuth) { lsSet('stellar-sp-pending', ''); return spLogin(); }
-  const same = spState.uri === t.sp!.uri, upNext = app.tracks.slice(app.cur).filter(x => x.sp).slice(0, 50).map(x => x.sp!.uri);
+  const same = spState.uri === t.sp!.uri, q = queue(), upNext = q.slice(Math.max(0, q.indexOf(app.cur))).map(i => app.tracks[i]).filter(x => x.sp).slice(0, 50).map(x => x.sp!.uri);
   const body = (b: object) => ({ method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
   try {
     if (spDevice) {
