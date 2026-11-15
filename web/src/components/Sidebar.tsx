@@ -3,7 +3,7 @@ import { app, emit, openSheet, uiSignal, useSignal } from '../core/store';
 import type { Track } from '../core/types';
 import { fmt } from '../core/util';
 import { artistOf, coverBackground, selectTrack, titleOf } from '../player/library';
-import { createList, currentList, inList, moveInList, queue, showList, toggleInList, trackKey } from '../player/playlists';
+import { createList, currentList, inList, moveInList, queue, showList, toggleInList, trackKey, userLists } from '../player/playlists';
 import { IconPlus } from './Icons';
 
 function SongMenu({ t, i, onClose }: { t: Track; i: number; onClose: () => void }) {
@@ -16,14 +16,14 @@ function SongMenu({ t, i, onClose }: { t: Track; i: number; onClose: () => void 
   }, [onClose]);
   return (
     <div className="songmenu" role="menu" aria-label={`${titleOf(t)} options`}>
-      <span className="label">Add to playlist</span>
-      {app.lists.map(p => (
+      {userLists().length > 0 && <span className="label">Add to playlist</span>}
+      {userLists().map(p => (
         <button key={p.id} type="button" role="menuitemcheckbox" aria-checked={inList(p, t)} onClick={() => toggleInList(p, t)}>
           <span className="tick">{inList(p, t) ? '✓' : ''}</span>{p.name}
         </button>
       ))}
       <button type="button" role="menuitem" onClick={() => { const p = createList(undefined, [trackKey(t)]); showList(p.id); onClose(); }}><span className="tick">+</span>New playlist with this song</button>
-      {l && inList(l, t) && <>
+      {l && !l.builtin && inList(l, t) && <>
         <span className="label">{l.name}</span>
         <button type="button" role="menuitem" onClick={() => moveInList(l, t, -1)}><span className="tick">↑</span>Move up</button>
         <button type="button" role="menuitem" onClick={() => moveInList(l, t, 1)}><span className="tick">↓</span>Move down</button>

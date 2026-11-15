@@ -6,7 +6,7 @@ import { dur } from '../audio/engine';
 import { parseLyrics } from '../lyrics/parse';
 import { searchPanel } from '../lyrics/lrclib';
 import { addDemos, addFiles, applyLyrics, artistOf, coverBackground, removeTrack, runAutoSync, selectTrack, setRoman, startSync, titleOf, useResult } from '../player/library';
-import { createList, currentList, deleteList, inList, queue, renameList, showList, toggleInList, trackKey } from '../player/playlists';
+import { createList, currentList, deleteList, inList, queue, renameList, showList, toggleInList, trackKey, userLists } from '../player/playlists';
 import { copyWaitingList, exportLibrary, importLibrary, waitingSongs } from '../player/backup';
 import { download, forgetLyrics, lrcFileName, lyricsFor, lyricsList, lyricsSource, norm, trackSongKey } from '../lyrics/store';
 import { isConnected, spClientId, spDisconnect, spImport, spLogin, spRedirect, spSaveClient } from '../spotify/spotify';
@@ -108,7 +108,8 @@ function PlaylistBar() {
         {app.lists.map(p => <button key={p.id} type="button" role="tab" className="chip" aria-selected={l === p} aria-pressed={l === p} onClick={() => showList(p.id)}>{p.name}</button>)}
         <button type="button" className="chip" id="newList" onClick={() => { const p = createList(); showList(p.id); setTimeout(() => name.current?.select(), 0); }}>+ New playlist</button>
       </div>
-      {l && (
+      {l?.builtin && <p className="hint">A ready-made playlist of free music built into Stellar: public domain and freely licensed recordings, streamed from Wikimedia Commons. Each song shows its performer and licence under the lyrics.</p>}
+      {l && !l.builtin && (
         <div className="findrow">
           <input ref={name} type="text" aria-label="Playlist name" defaultValue={l.name} onBlur={e => renameList(l, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
           {cur && <button className="btn" type="button" onClick={() => toggleInList(l, cur)}>{inList(l, cur) ? 'Take out' : 'Add'} the current song</button>}
@@ -132,14 +133,14 @@ function SongList() {
           <div key={k + i} className="tr" aria-current={String(i === app.cur) as 'true' | 'false'} role="button" tabIndex={0}
             onClick={() => void selectTrack(i, true)} onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) void selectTrack(i, true); }}>
             <div className="n"><b>{(i === app.cur && app.playing ? '▶ ' : '') + titleOf(t)}</b><small>{[artistOf(t), where, ln ? `${ln} lyric lines` : 'no lyrics yet'].filter(Boolean).join(' · ')}</small></div>
-            {app.lists.length > 0 && !l && (
+            {userLists().length > 0 && !l && (
               <select className="addto" aria-label={`Add ${titleOf(t)} to a playlist`} value="" onClick={e => e.stopPropagation()}
-                onChange={e => { const p = app.lists.find(x => x.id === e.target.value); if (p) toggleInList(p, t); }}>
+                onChange={e => { const p = userLists().find(x => x.id === e.target.value); if (p) toggleInList(p, t); }}>
                 <option value="">Add to...</option>
-                {app.lists.map(p => <option key={p.id} value={p.id}>{(inList(p, t) ? '✓ ' : '') + p.name}</option>)}
+                {userLists().map(p => <option key={p.id} value={p.id}>{(inList(p, t) ? '✓ ' : '') + p.name}</option>)}
               </select>
             )}
-            {l
+            {l?.builtin ? null : l
               ? <button type="button" className="rm" aria-label={`Take ${titleOf(t)} out of ${l.name}`} onClick={e => { e.stopPropagation(); toggleInList(l, t); }}>Take out</button>
               : <button type="button" className="rm" aria-label={`Remove ${titleOf(t)}`} onClick={e => { e.stopPropagation(); removeTrack(i); }}>Remove</button>}
           </div>

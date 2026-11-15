@@ -59,7 +59,7 @@ export function LyricsView() {
                 ))}
               </button>
             ))}
-            <div className="lv-credit">{[t?.credit ? `${t.credit.license} recording, ${t.credit.performer} (${t.credit.year}), via Wikimedia Commons  ·  Words: ${t.credit.lyrics}` : fromLrclib ? 'Lyrics from LRCLIB' : 'Your lyrics', synced ? synced[0].replace(/,.*$/, '') : '', S.roman ? 'shown in English letters' : ''].filter(Boolean).join('  ·  ')}</div>
+            <div className="lv-credit">{[t?.credit ? `${t.credit.license} recording, ${t.credit.performer}${t.credit.year ? ` (${t.credit.year})` : ''}, via Wikimedia Commons` + (/instrumental/.test(t.credit.lyrics) ? '' : `  ·  Words: ${t.credit.lyrics}`) : fromLrclib ? 'Lyrics from LRCLIB' : 'Your lyrics', synced ? synced[0].replace(/,.*$/, '') : '', S.roman ? 'shown in English letters' : ''].filter(Boolean).join('  ·  ')}</div>
           </>
         )}
       </div>

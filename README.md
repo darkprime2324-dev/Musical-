@@ -6,7 +6,7 @@ Music projects, lyrics and the **Stellar** lyric player.
 
 `app/musical-stage.html` is a single-file web app. Open it in a browser (Chrome, Edge, Firefox or Safari), add a song and its lyrics, and the words are animated across a night sky of real constellations, the Milky Way, tonight's moon phase, nebulae and auroras, all reacting to the music.
 
-- **Free music built in**: real public-domain recordings from 1905 to 1917 with word-synced lyrics, streamed from Wikimedia Commons, ready the moment the page opens (see [Built-in music](#built-in-music-public-domain)).
+- **Free music built in**: 17 free-to-use pieces ready the moment the page opens: sing-along songs with word-synced lyrics, ragtime and marches, and classical, in ready-made playlists (see [Built-in music](#built-in-music-free-to-use)).
 - **Your own music library, no account needed**: your songs, your playlists and your lyrics library live in your browser. Spotify is optional (see [Your own library](#your-own-library-no-spotify-needed)).
 - **Spotify-style player**: a library sidebar with cover art read from your MP3s, and a Lyrics view where the whole song scrolls by itself, the current line lights up word by word, and clicking any line jumps the song there. The background takes its colour from the cover.
 - **English letters** for Telugu and Hindi lyrics, on by default (toggle in the bottom bar).
@@ -51,20 +51,32 @@ Commit the rebuilt `app/musical-stage.html` with your source changes so the site
 
 The engine keeps its state in plain objects that the canvas reads every frame; React components subscribe to small signals and re-render when the engine reports a change.
 
-## Built-in music (public domain)
+## Built-in music (free to use)
 
-Stellar opens with real songs already in the library, so there is something to play before you add anything:
+Stellar opens with 17 pieces already in the library, so there is always something to play. The chips under *Your library* (*Sing-along*, *Ragtime & marches*, *Classical*) are ready-made playlists of them; they can't be renamed or deleted, and your own playlists work alongside them.
 
-| Song | Performer | Recorded | Lyrics |
+| Playlist | Piece | Performer | Licence |
 | --- | --- | --- | --- |
-| Shine On, Harvest Moon | Ada Jones & Billy Murray | 1909 | Word-synced, with the recording's spoken scene |
-| Take Me Out to the Ball Game | Edward Meeker | 1908 | Word-synced, with the Edison announcement |
-| In the Good Old Summertime | John Philip Sousa's Band | 1905 | Instrumental |
+| Sing-along | Shine On, Harvest Moon | Ada Jones & Billy Murray, 1909 | Public domain; word-synced lyrics, with the recording's spoken scene |
+| Sing-along | Take Me Out to the Ball Game | Edward Meeker, 1908 | Public domain; word-synced lyrics, with the Edison announcement |
+| Ragtime & marches | In the Good Old Summertime | John Philip Sousa's Band, 1905 | Public domain |
+| Ragtime & marches | Maple Leaf Rag | Scott Joplin's own piano roll, 1916 | Public domain |
+| Ragtime & marches | The Entertainer | James Brigham, 2018 | Public domain |
+| Ragtime & marches | Sunflower Slow Drag | United States Marine Band | Public domain |
+| Ragtime & marches | The Stars and Stripes Forever | United States Marine Band, 2017 | Public domain |
+| Ragtime & marches | El Capitan | United States Marine Band, 2010 | CC BY 3.0 |
+| Ragtime & marches | American Patrol | United States Marine Band, 2018 | Public domain |
+| Ragtime & marches | The Glory of the Yankee Navy | United States Marine Band, 1978 | Public domain |
+| Ragtime & marches | Rhapsody in Blue | United States Marine Band, Bramwell Tovey (piano), 2018 | Public domain |
+| Classical | In the Hall of the Mountain King · Morning Mood (Grieg) | Musopen Symphony Orchestra, 2012 | Public domain |
+| Classical | Goldberg Variations: Aria (Bach) | Musopen | CC0 |
+| Classical | The Marriage of Figaro: Overture · Symphony No. 40: Molto allegro (Mozart) | Musopen Symphony Orchestra, 2012 | Public domain |
+| Classical | Vltava (Smetana) | Musopen Symphony Orchestra, 2012 | Public domain |
 
-- **Free to use**: the recordings are in the public domain (made before 1925), and so are the songs and their words. That is why their lyrics can ship in this repository (`web/src/catalog/lyrics.ts`); no copyrighted lyrics are added.
-- **Streamed, not stored**: the audio plays straight from Wikimedia Commons (MP3 first so every browser can play it, the original Ogg as a fallback). It needs an internet connection and adds nothing to the repository. Beat-reactive visuals work because Commons allows any page to read the audio.
-- **Word-synced**: the lyrics were timed to these exact recordings with speech recognition, word by word (`tools/fit_lyrics.py`). The recordings include their original spoken parts, like the Edison announcement and the 1909 comedy dialogue, and the lyrics show those too.
-- **Adding a song**: it must be public domain or CC0/CC BY, both the recording and the words, and hosted on Commons. Time it with `python3 tools/fit_lyrics.py song.ogg words.txt -o song.lrc`, check the per-line report, and add an entry to `web/src/catalog/index.ts`. Very old wax cylinders (1890s) are usually too noisy to time automatically; the tool's report shows that.
+- **Free to use**: every recording is public domain, CC0 or CC BY, as stated on its Wikimedia Commons page. United States Marine Band recordings are works of the US government, so they are public domain. The sing-along songs and their words are from before 1925, which is why their lyrics can ship in this repository (`web/src/catalog/lyrics.ts`); no copyrighted lyrics are added.
+- **Streamed, not stored**: the audio plays straight from Wikimedia Commons (MP3 first so every browser can play it, the original file as a fallback). It needs an internet connection and adds nothing to the repository. Beat-reactive visuals work because Commons allows any page to read the audio. Each piece shows its performer and licence under the lyrics.
+- **Word-synced**: the sing-along lyrics were timed to these exact recordings with speech recognition, word by word (`tools/fit_lyrics.py`). The recordings include their original spoken parts, like the Edison announcement and the 1909 comedy dialogue, and the lyrics show those too.
+- **Adding a piece**: the recording (and the words, for a song) must be public domain, CC0 or CC BY, and hosted on Commons; copy the licence from its file page into `web/src/catalog/index.ts`. Time a song's words with `python3 tools/fit_lyrics.py song.ogg words.txt -o song.lrc` and check the per-line report. Very old wax cylinders (1890s) are usually too noisy to time automatically; the report shows that.
 
 ## Your own library (no Spotify needed)
 

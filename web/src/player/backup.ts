@@ -3,7 +3,7 @@ import type { LyricsEntry, Meta, Playlist, SpotifyInfo, Track } from '../core/ty
 import { download, lyricsList, mergeLyrics } from '../lyrics/store';
 import { spSaveLib } from '../spotify/spotify';
 import { isLocal, storeSongs } from './persist';
-import { mergeLists, trackKey } from './playlists';
+import { mergeLists, trackKey, userLists } from './playlists';
 
 // A backup of your library in one small file: the song list, your playlists and your lyrics library.
 // The audio stays in your music folder (it is big, and it is already on your computer). On another
@@ -20,9 +20,9 @@ export function exportLibrary() {
     if (isLocal(t)) songs.push({ ...base, fileName: t.file ? t.file.name : t.missing!.fileName, size: t.file ? t.file.size : t.missing!.size });
     else if (t.sp) songs.push({ ...base, sp: t.sp, cover: t.cover && /^https:/.test(t.cover) ? t.cover : undefined });
   }
-  const b: Backup = { app: 'stellar', version: 1, saved: new Date().toISOString(), songs, playlists: app.lists, lyrics: lyricsList() };
+  const b: Backup = { app: 'stellar', version: 1, saved: new Date().toISOString(), songs, playlists: userLists(), lyrics: lyricsList() };
   download(`stellar-library-${b.saved.slice(0, 10)}.json`, JSON.stringify(b, null, 1), 'application/json');
-  toast(`Library saved: ${songs.length} songs, ${app.lists.length} playlists, ${b.lyrics.length} lyric sheets. Keep the file private; it holds lyrics.`);
+  toast(`Library saved: ${songs.length} songs, ${userLists().length} playlists, ${b.lyrics.length} lyric sheets. Keep the file private; it holds lyrics.`);
 }
 
 export async function importLibrary(file: File) {

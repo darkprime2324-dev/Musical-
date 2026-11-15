@@ -34,7 +34,7 @@ export interface Scene {
 export type SheetName = 'Lyrics' | 'Library' | 'Settings' | null;
 
 export interface Credit { performer: string; year: string; license: string; page: string; lyrics: string }
-export interface Playlist { id: string; name: string; keys: string[]; created: number }
+export interface Playlist { id: string; name: string; keys: string[]; created: number; builtin?: boolean }
 export interface LyricsEntry { key: string; title: string; artist: string; lrc: string; dur: number; updated: number }
 export type StyleId = 'auto' | 'constellation' | 'orbit' | 'comet' | 'supernova' | 'starmap' | 'eclipse' | 'nebula' | 'telemetry' | 'pulsar' | 'meteor' | 'signal';
 export type SceneId = 'observatory' | 'nebula' | 'aurora' | 'lunar' | 'warp' | 'blackhole' | 'dome' | 'galaxy';
