@@ -11,16 +11,21 @@ import { startLoop } from './sky/loop';
 import { now, seek, togglePlay } from './audio/engine';
 import { addDemos, enrich, nextTrack, nudge, prevTrack, selectTrack, toggleFullscreen } from './player/library';
 import { restoreSongs, watchLibrary } from './player/persist';
+import { loadPlaylists, queue } from './player/playlists';
+import { loadLyricsLibrary, watchLyrics } from './lyrics/store';
 import { spImport, spLoadMyPlaylists, spParseLink, spRestoreLib, spStart, isConnected } from './spotify/spotify';
 
 let started = false;
 async function boot() {
   if (started) return; started = true;
   spRestoreLib();
-  const kept = await restoreSongs();
-  if (kept.length) { app.tracks.push(...kept); enrich(kept); }
-  addDemos(); void selectTrack(0, false); watchLibrary();
-  if (kept.length) toast(`Welcome back: ${kept.length} song${kept.length === 1 ? '' : 's'} from your computer restored.`);
+  const [kept] = await Promise.all([restoreSongs(), loadLyricsLibrary(), loadPlaylists()]);
+  if (kept.length) { app.tracks.push(...kept); enrich(kept.filter(t => t.file)); }
+  addDemos();
+  const q = queue(), first = q.find(i => !app.tracks[i].missing) ?? 0;
+  void selectTrack(first, false); watchLibrary(); watchLyrics();
+  const here = kept.filter(t => t.file).length, need = kept.length - here;
+  if (kept.length) toast(`Welcome back: ${here} song${here === 1 ? '' : 's'} from your computer restored.` + (need ? ` ${need} still need their file: open your music folder.` : ''));
   void spStart();
   startLoop();
   if (document.fonts) {
@@ -42,7 +47,7 @@ export function App() {
       else if (e.key === 'n') nextTrack();
       else if (e.key === 'p') prevTrack();
       else if (e.key === 'f') toggleFullscreen();
-      else if (e.key === 'l') { openSheet('Playlist'); if (isConnected() && !app.sp.mine) void spLoadMyPlaylists(); }
+      else if (e.key === 'l') { openSheet('Library'); if (isConnected() && !app.sp.mine) void spLoadMyPlaylists(); }
       else if (e.key === 'Escape') { app.sheet = null; emit(); }
       else if (e.key === '[' || e.key === ']' || e.key === '{' || e.key === '}') nudge((e.key === '[' || e.key === '{' ? -1 : 1) * (e.shiftKey || e.key === '{' || e.key === '}' ? 1000 : 100));
     };

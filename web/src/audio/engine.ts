@@ -3,7 +3,7 @@ import { clamp } from '../core/util';
 import { fx } from '../core/fx';
 import { spNow, spPlay, spPause, spSeek } from '../spotify/spotify';
 import { startIntro } from '../sky/post';
-import { selectTrack, syncEnd } from '../player/library';
+import { nextTrack, syncEnd } from '../player/library';
 
 // Local songs and demos play through Web Audio, so the sky can analyse them.
 // Spotify songs are played by Spotify; these functions hand over to the Spotify module for them.
@@ -41,7 +41,7 @@ export function play() {
   s.onended = () => {
     if (audio.src === s && app.playing) {
       app.playing = false; audio.offset = 0; audio.src = null; syncEnd(); emit();
-      if (app.cur + 1 < app.tracks.length) void selectTrack(app.cur + 1, true);
+      nextTrack(true);
     }
   };
   s.start(0, audio.offset); audio.src = s; audio.startedAt = ac.currentTime - audio.offset; app.playing = true; audio.trackStartT = fx.T;

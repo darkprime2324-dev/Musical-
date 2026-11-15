@@ -20,6 +20,9 @@ export interface Track {
   cover?: string;             // object URL or Spotify image URL
   meta?: Meta;                // title / artist / album used for lyrics lookup
   sp?: SpotifyInfo;           // Spotify song (audio played by Spotify)
+  missing?: { fileName: string; size: number }; // in your library, but its file is not in this browser yet
+  alt?: string;               // second address for a built-in song (original format, if the first fails)
+  credit?: Credit;            // free music built into Stellar: who, when, licence, where it is hosted
   loading?: boolean;
   synced?: boolean;           // timings already fitted, by auto-sync, tap-sync or a manual nudge
 }
@@ -28,7 +31,11 @@ export interface Scene {
   label: string; bg: [string, string, string]; star: string; accent: string; accent2: string; lyr: string; grid?: boolean;
 }
 
-export type SheetName = 'Lyrics' | 'Playlist' | 'Settings' | null;
+export type SheetName = 'Lyrics' | 'Library' | 'Settings' | null;
+
+export interface Credit { performer: string; year: string; license: string; page: string; lyrics: string }
+export interface Playlist { id: string; name: string; keys: string[]; created: number; builtin?: boolean }
+export interface LyricsEntry { key: string; title: string; artist: string; lrc: string; dur: number; updated: number }
 export type StyleId = 'auto' | 'constellation' | 'orbit' | 'comet' | 'supernova' | 'starmap' | 'eclipse' | 'nebula' | 'telemetry' | 'pulsar' | 'meteor' | 'signal';
 export type SceneId = 'observatory' | 'nebula' | 'aurora' | 'lunar' | 'warp' | 'blackhole' | 'dome' | 'galaxy';
 

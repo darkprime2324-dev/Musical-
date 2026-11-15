@@ -42,6 +42,21 @@ body{height:100%;background:var(--ink);color:var(--fg);font-family:var(--ui);ove
 .st .n{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .st .t{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st .a{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-lists{display:flex;gap:6px;padding:0 12px 10px 16px;overflow-x:auto;scrollbar-width:none;flex:none}
+.side-lists .chip{padding:6px 10px;white-space:nowrap}
+.strow{position:relative}
+.strow .st{padding-right:34px}
+.st[data-missing="true"]{opacity:.55}
+.more{appearance:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:var(--muted);font:600 16px/1 var(--ui);cursor:pointer;opacity:0}
+.strow:hover .more,.more:focus-visible,.more[aria-expanded="true"]{opacity:1}
+.more:hover{color:var(--fg);background:var(--line)}
+@media (hover:none){.more{opacity:1}}
+.songmenu{position:absolute;right:6px;top:calc(100% - 4px);z-index:5;min-width:210px;max-width:260px;display:flex;flex-direction:column;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.55)}
+.songmenu .label{padding:8px 8px 4px}
+.songmenu button{appearance:none;display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--fg);font:13px var(--ui);text-align:left;padding:8px;border-radius:6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.songmenu button:hover,.songmenu button:focus-visible{background:var(--raise)}
+.songmenu .tick{width:14px;flex:none;color:var(--accent);text-align:center}
+.addto{flex:none;max-width:120px;background:var(--ink);color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font:12px var(--ui);cursor:pointer}
 .st .d{flex:none;font:12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
 @media (max-width:900px){.side{display:none}}
 .lv{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;background:var(--lvbg,rgba(10,8,20,.42));-webkit-mask-image:linear-gradient(transparent,#000 10%,#000 84%,transparent);mask-image:linear-gradient(transparent,#000 10%,#000 84%,transparent);transition:background .8s}

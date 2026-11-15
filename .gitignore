@@ -24,3 +24,6 @@ Bounced Files/tmp/
 # Python
 __pycache__/
 *.pyc
+
+# Library backups from the player hold lyrics: keep them private
+stellar-library-*.json

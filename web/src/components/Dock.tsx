@@ -37,7 +37,7 @@ export function Dock() {
       <div className="transport gutter">
         <button className="ico" id="prevBtn" type="button" aria-label="Previous song" onClick={prevTrack}><IconPrev /></button>
         <button className="play" id="playBtn" type="button" aria-label={app.playing ? 'Pause' : 'Play'} onClick={togglePlay}><IconPlay playing={app.playing} /></button>
-        <button className="ico" id="nextBtn" type="button" aria-label="Next song" onClick={nextTrack}><IconNext /></button>
+        <button className="ico" id="nextBtn" type="button" aria-label="Next song" onClick={() => nextTrack()}><IconNext /></button>
         <span className="time" id="curTime" ref={cur}>0:00</span>
         <input type="range" id="seek" ref={bar} min="0" max={String(d || 1)} step="0.01" defaultValue="0" aria-label="Song position" />
         <span className="time" id="durTime">{fmt(d)}</span>
